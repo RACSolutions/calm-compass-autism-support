@@ -1,4 +1,4 @@
-// src/screens/SettingsScreen.js - Fixed version with proper syntax
+// src/screens/SettingsScreen.js - Fixed version for tab navigation
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -22,13 +22,13 @@ const SettingsScreen = ({
   settings, 
   onUpdateSettings, 
   onUpdateUserData, 
-  onClose,
+  onClose = () => {}, // Default empty function since it's a tab
   accessibilityMode = false 
 }) => {
   const [localSettings, setLocalSettings] = useState(settings || {});
   const [localUserData, setLocalUserData] = useState(userData || {});
   const [showResetModal, setShowResetModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Update local state when props change
   useEffect(() => {
@@ -60,19 +60,26 @@ const SettingsScreen = ({
     options = [],
     placeholder = '' 
   }) => {
-    // Local state for text inputs to prevent re-render issues
-    const [localValue, setLocalValue] = useState(value || '');
+    // Local state only for text inputs to prevent re-renders
+    const [localTextValue, setLocalTextValue] = useState(value || '');
     
+    // Update local state when prop changes (but not during typing)
     useEffect(() => {
-      setLocalValue(value || '');
-    }, [value]);
+      if (type === 'input' && value !== localTextValue) {
+        setLocalTextValue(value || '');
+      }
+    }, [value, type, localTextValue]);
 
-    const handleTextChange = (text) => {
-      setLocalValue(text);
-      // Debounce the actual state update
-      setTimeout(() => {
-        onValueChange(text);
-      }, 0);
+    const handleTextInputChange = (text) => {
+      setLocalTextValue(text); // Update display immediately
+    };
+
+    const handleTextInputEnd = () => {
+      // Only update parent state when editing is finished
+      if (localTextValue !== value) {
+        onValueChange(localTextValue);
+        setHasUnsavedChanges(true);
+      }
     };
 
     return (
@@ -91,7 +98,10 @@ const SettingsScreen = ({
           {type === 'switch' && (
             <Switch
               value={value}
-              onValueChange={onValueChange}
+              onValueChange={(newValue) => {
+                onValueChange(newValue);
+                setHasUnsavedChanges(true);
+              }}
               trackColor={{ false: '#ccc', true: THEME.semantic.calm }}
               thumbColor={value ? '#fff' : '#f4f3f4'}
               accessibilityLabel={title}
@@ -101,7 +111,10 @@ const SettingsScreen = ({
           {type === 'select' && (
             <TouchableOpacity
               style={[styles.selectButton, accessibilityMode && styles.highContrastButton]}
-              onPress={() => showOptionsModal(title, options, value, onValueChange)}
+              onPress={() => showOptionsModal(title, options, value, (newValue) => {
+                onValueChange(newValue);
+                setHasUnsavedChanges(true);
+              })}
               accessibilityRole="button"
               accessibilityLabel={`${title}: ${value}`}
             >
@@ -114,17 +127,70 @@ const SettingsScreen = ({
           {type === 'input' && (
             <TextInput
               style={[styles.textInput, accessibilityMode && styles.highContrastInput]}
-              value={localValue}
-              onChangeText={handleTextChange}
+              value={localTextValue}
+              onChangeText={handleTextInputChange}
+              onEndEditing={handleTextInputEnd}
+              onSubmitEditing={handleTextInputEnd}
               placeholder={placeholder}
               placeholderTextColor={THEME.text.light}
               accessibilityLabel={title}
               returnKeyType="done"
-              blurOnSubmit={true}
+              autoCorrect={false}
+              autoCapitalize="words"
+              blurOnSubmit={false}
             />
           )}
         </View>
       </View>
+    );
+  };
+
+  // Zone TextInput component with proper state management
+  const ZoneTextInput = ({ zone, description }) => {
+    const [localValue, setLocalValue] = useState(description || '');
+    
+    // Update local state when prop changes
+    useEffect(() => {
+      if (description !== localValue) {
+        setLocalValue(description || '');
+      }
+    }, [description, localValue]);
+
+    const handleTextChange = (text) => {
+      setLocalValue(text); // Update display immediately
+    };
+
+    const handleTextEnd = () => {
+      // Only update parent state when editing is finished
+      if (localValue !== description) {
+        setLocalUserData(prev => ({
+          ...prev,
+          zoneDescriptions: {
+            ...prev.zoneDescriptions,
+            [zone]: localValue
+          }
+        }));
+        setHasUnsavedChanges(true);
+      }
+    };
+
+    return (
+      <TextInput
+        style={[styles.zoneInput, accessibilityMode && styles.highContrastInput]}
+        value={localValue}
+        onChangeText={handleTextChange}
+        onEndEditing={handleTextEnd}
+        onSubmitEditing={handleTextEnd}
+        placeholder={`Describe your ${zone} zone...`}
+        multiline
+        numberOfLines={3}
+        textAlignVertical="top"
+        accessibilityLabel={`${zone} zone description`}
+        returnKeyType="done"
+        autoCorrect={true}
+        autoCapitalize="sentences"
+        blurOnSubmit={false}
+      />
     );
   };
 
@@ -144,6 +210,7 @@ const SettingsScreen = ({
     try {
       await onUpdateSettings(localSettings);
       await onUpdateUserData(localUserData);
+      setHasUnsavedChanges(false);
       Alert.alert('Settings Saved! 🎉', 'Your preferences have been updated.');
     } catch (error) {
       Alert.alert('Error', 'Failed to save settings. Please try again.');
@@ -184,6 +251,16 @@ const SettingsScreen = ({
 
   return (
     <View style={[styles.container, accessibilityMode && styles.highContrastContainer]}>
+      
+      {/* Unsaved Changes Banner at top */}
+      {hasUnsavedChanges && (
+        <View style={styles.unsavedBanner}>
+          <Text style={styles.unsavedBannerText}>
+            ⚠️ You have unsaved changes
+          </Text>
+        </View>
+      )}
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* User Profile */}
         <SettingSection title="Profile" icon="👤">
@@ -280,116 +357,72 @@ const SettingsScreen = ({
               These descriptions help you understand each zone better.
             </Text>
             
-            {Object.entries(localUserData?.zoneDescriptions || {}).map(([zone, description]) => {
-              const ZoneTextInput = () => {
-                const [localZoneValue, setLocalZoneValue] = useState(description || '');
-                
-                useEffect(() => {
-                  setLocalZoneValue(description || '');
-                }, [description]);
-
-                const handleZoneTextChange = (text) => {
-                  setLocalZoneValue(text);
-                  setTimeout(() => {
-                    setLocalUserData(prev => ({
-                      ...prev,
-                      zoneDescriptions: {
-                        ...prev.zoneDescriptions,
-                        [zone]: text
-                      }
-                    }));
-                  }, 0);
-                };
-
-                return (
-                  <TextInput
-                    style={[styles.zoneInput, accessibilityMode && styles.highContrastInput]}
-                    value={localZoneValue}
-                    onChangeText={handleZoneTextChange}
-                    placeholder={`Describe your ${zone} zone...`}
-                    multiline
-                    numberOfLines={2}
-                    accessibilityLabel={`${zone} zone description`}
-                    returnKeyType="done"
-                    blurOnSubmit={true}
-                  />
-                );
-              };
-
-              return (
-                <View key={zone} style={styles.zoneCustomRow}>
-                  <Text style={styles.zoneName}>
-                    {zone.charAt(0).toUpperCase() + zone.slice(1)} Zone
-                  </Text>
-                  <ZoneTextInput />
-                </View>
-              );
-            })}
+            {Object.entries(localUserData?.zoneDescriptions || {}).map(([zone, description]) => (
+              <View key={zone} style={styles.zoneCustomRow}>
+                <Text style={styles.zoneName}>
+                  {zone.charAt(0).toUpperCase() + zone.slice(1)} Zone
+                </Text>
+                <ZoneTextInput zone={zone} description={description} />
+              </View>
+            ))}
           </View>
         </SettingSection>
 
         {/* Data & Privacy */}
         <SettingSection title="Data & Privacy" icon="🔒">
-          <SettingRow
-            title="Auto-Save Progress"
-            subtitle="Automatically save your check-ins"
-            value={localSettings?.autoSaveProgress || true}
-            onValueChange={(value) => 
-              setLocalSettings(prev => ({ ...prev, autoSaveProgress: value }))
-            }
-          />
-          
           <TouchableOpacity
             style={[styles.actionButton, styles.exportButton]}
-            onPress={() => setShowExportModal(true)}
+            onPress={handleExportData}
             accessibilityRole="button"
-            accessibilityLabel="Export your data"
+            accessibilityLabel="Export Data"
           >
-            <Text style={styles.actionButtonText}>📤 Export My Data</Text>
+            <Text style={[styles.actionButtonText, { color: THEME.semantic.calm }]}>
+              Export My Data 📤
+            </Text>
             <Text style={styles.actionButtonSubtext}>
-              Create a report to share with caregivers
+              Create a backup of your progress
             </Text>
           </TouchableOpacity>
-        </SettingSection>
-
-        {/* Advanced */}
-        <SettingSection title="Advanced" icon="🔧">
+          
           <TouchableOpacity
             style={[styles.actionButton, styles.resetButton]}
             onPress={() => setShowResetModal(true)}
             accessibilityRole="button"
-            accessibilityLabel="Reset all data"
+            accessibilityLabel="Reset All Data"
           >
             <Text style={[styles.actionButtonText, { color: THEME.text.error }]}>
-              🔄 Reset All Data
+              Reset Everything 🔄
             </Text>
             <Text style={styles.actionButtonSubtext}>
-              Clear all progress and start fresh
+              Clear all data and start fresh
             </Text>
           </TouchableOpacity>
-
-          <View style={styles.versionInfo}>
-            <Text style={[styles.versionText, accessibilityMode && styles.highContrastSubtitle]}>
-              Calm Compass v1.0.0
-            </Text>
-            <Text style={[styles.versionText, accessibilityMode && styles.highContrastSubtitle]}>
-              Made with 💚 for emotional wellness
-            </Text>
-          </View>
         </SettingSection>
+
+        {/* App Information */}
+        <View style={styles.versionInfo}>
+          <Text style={styles.versionText}>Zones of Regulation Helper</Text>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.versionText}>Made with 💙 for emotional wellness</Text>
+        </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Save Button at Bottom */}
+      {/* Fixed Save Button */}
       <View style={styles.saveButtonContainer}>
         <TouchableOpacity
-          style={styles.bottomSaveButton}
+          style={[
+            styles.bottomSaveButton,
+            hasUnsavedChanges && styles.bottomSaveButtonActive
+          ]}
           onPress={handleSave}
           accessibilityRole="button"
-          accessibilityLabel="Save all settings"
+          accessibilityLabel="Save Settings"
         >
-          <Text style={styles.bottomSaveButtonText}>💾 Save Changes</Text>
+          <Text style={styles.bottomSaveButtonText}>
+            {hasUnsavedChanges ? 'Save Changes' : 'All Saved ✓'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -402,20 +435,27 @@ const SettingsScreen = ({
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, accessibilityMode && styles.highContrastModal]}>
-            <Text style={styles.modalTitle}>⚠️ Reset All Data</Text>
+            <Text style={[styles.modalTitle, accessibilityMode && styles.highContrastText]}>
+              Reset Everything? 🔄
+            </Text>
             <Text style={[styles.modalText, accessibilityMode && styles.highContrastText]}>
-              This will permanently delete all your progress, check-ins, and settings. 
-              You cannot undo this action.
+              This will permanently delete all your data, including:
+            </Text>
+            <Text style={[styles.modalText, accessibilityMode && styles.highContrastText]}>
+              • Your profile information{'\n'}
+              • Zone customizations{'\n'}
+              • Progress history{'\n'}
+              • All settings
             </Text>
             <Text style={[styles.modalSubtext, accessibilityMode && styles.highContrastSubtitle]}>
-              Are you absolutely sure you want to continue?
+              This action cannot be undone. Are you sure?
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowResetModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Keep My Data</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
@@ -424,46 +464,7 @@ const SettingsScreen = ({
                   handleReset();
                 }}
               >
-                <Text style={styles.confirmButtonText}>Reset Everything</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Export Modal */}
-      <Modal
-        visible={showExportModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowExportModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, accessibilityMode && styles.highContrastModal]}>
-            <Text style={styles.modalTitle}>📤 Export Data</Text>
-            <Text style={[styles.modalText, accessibilityMode && styles.highContrastText]}>
-              Create a summary report of your progress to share with parents, 
-              teachers, or counselors.
-            </Text>
-            <Text style={[styles.modalSubtext, accessibilityMode && styles.highContrastSubtitle]}>
-              This report includes your zone usage, favorite tools, and progress 
-              over time, but no personal information.
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowExportModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Not Now</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={() => {
-                  setShowExportModal(false);
-                  handleExportData();
-                }}
-              >
-                <Text style={styles.confirmButtonText}>Create Report</Text>
+                <Text style={styles.confirmButtonText}>Reset All</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -478,31 +479,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.primary.background,
   },
+  unsavedBanner: {
+    backgroundColor: '#fff3cd',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffc107',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  unsavedBannerText: {
+    color: '#856404',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
   },
   section: {
-    backgroundColor: THEME.primary.white,
-    borderRadius: 16,
+    backgroundColor: 'white',
+    marginHorizontal: 16,
     marginVertical: 8,
-    shadowColor: THEME.primary.shadow,
+    borderRadius: 12,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 3,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   sectionIcon: {
-    fontSize: 20,
+    fontSize: 24,
     marginRight: 12,
   },
   sectionTitle: {
@@ -516,7 +528,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
+    borderBottomColor: '#f0f0f0',
   },
   settingText: {
     flex: 1,
@@ -601,7 +613,7 @@ const styles = StyleSheet.create({
     color: THEME.text.primary,
     backgroundColor: 'white',
     textAlignVertical: 'top',
-    minHeight: 60,
+    minHeight: 80,
   },
   actionButton: {
     marginHorizontal: 20,
@@ -647,7 +659,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   bottomSaveButton: {
-    backgroundColor: THEME.semantic.calm,
+    backgroundColor: '#e0e0e0',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -656,6 +668,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  bottomSaveButtonActive: {
+    backgroundColor: THEME.semantic.calm,
   },
   bottomSaveButtonText: {
     fontSize: 16,
