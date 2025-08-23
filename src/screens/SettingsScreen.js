@@ -62,24 +62,31 @@ const SettingsScreen = ({
   }) => {
     // Local state only for text inputs to prevent re-renders
     const [localTextValue, setLocalTextValue] = useState(value || '');
+    const [isEditing, setIsEditing] = useState(false);
     
-    // Update local state when prop changes (but not during typing)
+    // Only update local state when not actively editing
     useEffect(() => {
-      if (type === 'input' && value !== localTextValue) {
+      if (type === 'input' && !isEditing) {
         setLocalTextValue(value || '');
       }
-    }, [value, type, localTextValue]);
+    }, [value, type, isEditing]);
 
     const handleTextInputChange = (text) => {
+      setIsEditing(true);
       setLocalTextValue(text); // Update display immediately
     };
 
     const handleTextInputEnd = () => {
+      setIsEditing(false);
       // Only update parent state when editing is finished
       if (localTextValue !== value) {
         onValueChange(localTextValue);
         setHasUnsavedChanges(true);
       }
+    };
+
+    const handleTextInputStart = () => {
+      setIsEditing(true);
     };
 
     return (
@@ -129,6 +136,7 @@ const SettingsScreen = ({
               style={[styles.textInput, accessibilityMode && styles.highContrastInput]}
               value={localTextValue}
               onChangeText={handleTextInputChange}
+              onFocus={handleTextInputStart}
               onEndEditing={handleTextInputEnd}
               onSubmitEditing={handleTextInputEnd}
               placeholder={placeholder}
@@ -148,19 +156,26 @@ const SettingsScreen = ({
   // Zone TextInput component with proper state management
   const ZoneTextInput = ({ zone, description }) => {
     const [localValue, setLocalValue] = useState(description || '');
+    const [isEditing, setIsEditing] = useState(false);
     
-    // Update local state when prop changes
+    // Only update local state when not actively editing
     useEffect(() => {
-      if (description !== localValue) {
+      if (!isEditing) {
         setLocalValue(description || '');
       }
-    }, [description, localValue]);
+    }, [description, isEditing]);
 
     const handleTextChange = (text) => {
+      setIsEditing(true);
       setLocalValue(text); // Update display immediately
     };
 
+    const handleTextStart = () => {
+      setIsEditing(true);
+    };
+
     const handleTextEnd = () => {
+      setIsEditing(false);
       // Only update parent state when editing is finished
       if (localValue !== description) {
         setLocalUserData(prev => ({
@@ -179,6 +194,7 @@ const SettingsScreen = ({
         style={[styles.zoneInput, accessibilityMode && styles.highContrastInput]}
         value={localValue}
         onChangeText={handleTextChange}
+        onFocus={handleTextStart}
         onEndEditing={handleTextEnd}
         onSubmitEditing={handleTextEnd}
         placeholder={`Describe your ${zone} zone...`}
