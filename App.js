@@ -1,5 +1,5 @@
-// App.js with beautiful vector icons
-import React, { useState, useEffect } from 'react';
+// App.js - Updated to automatically navigate to tools when zone is selected
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
@@ -51,68 +51,66 @@ const TabIcon = ({ iconName, iconSet = 'Ionicons', focused, size = 24 }) => {
       <IconComponent 
         name={iconName} 
         size={focused ? size + 2 : size} 
-        color={iconColor} 
+        color={iconColor}
       />
     </View>
   );
 };
 
-const App = () => {
-  // State management
+export default function App() {
   const [userData, setUserData] = useState(null);
   const [settings, setSettings] = useState(null);
   const [selectedZone, setSelectedZone] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Create a ref to control navigation
+  const navigationRef = useRef();
 
-  // Load data on app start
+  // Initialize app data
   useEffect(() => {
-    loadAppData();
+    async function initializeApp() {
+      try {
+        const [loadedUserData, loadedSettings] = await Promise.all([
+          DataManager.loadUserData(),
+          DataManager.loadSettings()
+        ]);
+        
+        setUserData(loadedUserData);
+        setSettings(loadedSettings);
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        Alert.alert('Welcome to Calm Compass! 🧭', 'Let\'s set up your emotional regulation journey together.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initializeApp();
   }, []);
 
-  const loadAppData = async () => {
-    try {
-      const [loadedUserData, loadedSettings] = await Promise.all([
-        DataManager.loadUserData(),
-        DataManager.loadSettings()
-      ]);
-      
-      setUserData(loadedUserData);
-      setSettings(loadedSettings);
-    } catch (error) {
-      console.error('Error loading app data:', error);
-      // Set defaults if loading fails
-      setUserData(DataManager.getDefaultUserData());
-      setSettings(DataManager.getDefaultSettings());
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle zone selection
+  // Handle zone selection - simple direct navigation like HTML concept
   const handleZoneSelection = async (zone) => {
     try {
-      setSelectedZone(zone);
-      
-      // Record the check-in
-      const updatedUserData = await DataManager.recordCheckin(zone, userData);
-      setUserData(updatedUserData);
-      
-      // Show kid-friendly encouragement
-      const zoneMessages = {
-        blue: "You're in the Blue Zone! 💙 That's okay - let's find some calm activities to help you feel better.",
-        green: "Awesome! You're in the Green Zone! 💚 You're feeling great - let's keep it that way!",
-        yellow: "You're in the Yellow Zone! 💛 Your feelings are getting big - let's find some tools to help!",
-        red: "You're in the Red Zone! ❤️ Your feelings are really big right now - let's find ways to help you feel safe and calm."
+      // Record the check-in silently
+      const checkinData = {
+        timestamp: new Date().toISOString(),
+        zone: zone,
+        id: Date.now()
       };
       
-      Alert.alert(
-        `${ZONE_EMOJIS[zone]} ${zone.charAt(0).toUpperCase() + zone.slice(1)} Zone`,
-        zoneMessages[zone] || `You're in the ${zone} zone. Let's find some helpful tools! 🧭`,
-        [{ text: 'Show me tools! 🛠️', style: 'default' }]
-      );
+      const updatedUserData = await DataManager.recordCheckin(checkinData, userData);
+      setUserData(updatedUserData);
+      setSelectedZone(zone);
+      
+      // Navigate directly to Help tab (like HTML concept - no popup)
+      navigationRef.current?.navigate('Help');
+      
     } catch (error) {
       console.error('Error recording check-in:', error);
       setSelectedZone(zone);
+      
+      // Still navigate to tools even if data recording fails
+      navigationRef.current?.navigate('Help');
     }
   };
 
@@ -180,7 +178,7 @@ const App = () => {
     />
   );
 
-  const HelpTab = () => (
+  const HelpTab = ({ navigation }) => (
     <HelpScreen
       selectedZone={selectedZone}
       tools={selectedZone ? getToolsForZone(selectedZone) : []}
@@ -188,6 +186,7 @@ const App = () => {
       onToolUse={handleToolUse}
       onSaveData={handleUpdateUserData}
       accessibilityMode={settings?.theme === 'high_contrast'}
+      navigation={navigation}
     />
   );
 
@@ -226,18 +225,18 @@ const App = () => {
   const isLargeText = settings?.fontSize === 'large';
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style="light" backgroundColor={THEME.semantic.calm} />
       
       <Tab.Navigator
-        screenOptions={{
-          headerShown: true,
+        screenOptions={({ route }) => ({
+          headerShown: route.name !== 'Help', // Hide header only for Help screen
           headerStyle: {
             backgroundColor: THEME.semantic.calm,
             elevation: 0,
             shadowOpacity: 0,
             borderBottomWidth: 0,
-            height: 120,
+            height: 140,
           },
           headerTitle: () => <HeaderLogo />,
           headerTitleAlign: 'center',
@@ -263,122 +262,97 @@ const App = () => {
             ? THEME.accessibility.highContrast.secondary 
             : THEME.text.secondary,
           tabBarLabelStyle: {
-            fontSize: isLargeText ? 13 : 11,
+            fontSize: isLargeText ? 14 : 11,
             fontWeight: '600',
-            marginTop: 4,
-          },
-          tabBarItemStyle: {
-            paddingVertical: 4,
+            marginTop: -4,
           }
-        }}
+        })}
       >
-        <Tab.Screen
-          name="CheckIn"
+        <Tab.Screen 
+          name="Zones" 
           component={ZonesTab}
           options={{
-            tabBarLabel: 'Check In',
             tabBarIcon: ({ focused }) => (
-              <TabIcon 
-                iconName="home" 
-                iconSet="Ionicons"
-                focused={focused} 
-                size={24}
-              />
+              <TabIcon iconName="color-palette" focused={focused} />
             ),
           }}
         />
-        
-        <Tab.Screen
-          name="Tools"
+        <Tab.Screen 
+          name="Help" 
           component={HelpTab}
           options={{
-            tabBarLabel: 'My Tools',
             tabBarIcon: ({ focused }) => (
-              <TabIcon 
-                iconName="build" 
-                iconSet="Ionicons"
-                focused={focused} 
-                size={24}
-              />
+              <TabIcon iconName="build" focused={focused} />
             ),
-            tabBarBadge: selectedZone ? undefined : '!',
+            tabBarBadge: selectedZone ? '🎯' : null,
+            tabBarBadgeStyle: {
+              backgroundColor: 'transparent',
+              fontSize: 12,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+              marginTop: -8,
+              marginLeft: 8,
+            }
           }}
         />
-        
-        <Tab.Screen
-          name="Progress"
+        <Tab.Screen 
+          name="Progress" 
           component={ProgressTab}
           options={{
-            tabBarLabel: 'My Journey',
             tabBarIcon: ({ focused }) => (
-              <TabIcon 
-                iconName="trending-up" 
-                iconSet="Ionicons"
-                focused={focused} 
-                size={24}
-              />
+              <TabIcon iconName="bar-chart" iconSet="Ionicons" focused={focused} />
             ),
-            tabBarBadge: userData?.streakDays > 3 ? userData.streakDays : undefined,
           }}
         />
-        
-        <Tab.Screen
-          name="Settings"
+        <Tab.Screen 
+          name="Settings" 
           component={SettingsTab}
           options={{
-            tabBarLabel: 'Settings',
             tabBarIcon: ({ focused }) => (
-              <TabIcon 
-                iconName="settings" 
-                iconSet="Ionicons"
-                focused={focused} 
-                size={24}
-              />
+              <TabIcon iconName="settings" focused={focused} />
             ),
           }}
         />
       </Tab.Navigator>
     </NavigationContainer>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  headerLogo: {
-    width: 220,
-    height: 65,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: THEME.primary.background,
+    backgroundColor: THEME.semantic.calm,
   },
   loadingEmoji: {
-    fontSize: 64,
+    fontSize: 80,
     marginBottom: 20,
   },
   loadingTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: THEME.text.primary,
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 10,
   },
   loadingText: {
-    fontSize: 16,
-    color: THEME.text.secondary,
-    textAlign: 'center',
+    fontSize: 18,
+    color: 'white',
+    opacity: 0.9,
+  },
+  headerLogo: {
+    width: 200,
+    height: 100,
   },
   tabIconContainer: {
-    alignItems: 'center',
+    width: 28,
+    height: 28,
     justifyContent: 'center',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    borderRadius: 14,
   },
   tabIconFocused: {
-    backgroundColor: THEME.semantic.calm + '15',
+    backgroundColor: THEME.semantic.calm + '20',
   },
 });
-
-export default App;
