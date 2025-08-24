@@ -1,6 +1,7 @@
-// src/components/BlueZoneComponents/index.js
+// src/components/BlueZoneComponents/index.js - Fixed with close buttons and scrolling
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { THEME } from '../../styles/colors';
 
@@ -85,112 +86,117 @@ export const TimerComponent = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (showSetup) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{tool.icon} {tool.title}</Text>
-          <Text style={styles.subtitle}>How long would you like to rest?</Text>
-        </View>
-
-        <View style={styles.timeOptions}>
-          {tool.timerOptions.map(time => (
-            <TouchableOpacity
-              key={time}
-              style={[
-                styles.timeButton,
-                selectedTime === time && styles.selectedTimeButton
-              ]}
-              onPress={() => setSelectedTime(time)}
-            >
-              <Text style={[
-                styles.timeButtonText,
-                selectedTime === time && styles.selectedTimeButtonText
-              ]}>
-                {time} min
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.instructions}>
-          <Text style={styles.instructionTitle}>While you rest:</Text>
-          {tool.instructions.map((instruction, index) => (
-            <Text key={index} style={styles.instruction}>
-              • {instruction}
-            </Text>
-          ))}
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.startButton} onPress={startTimer}>
-            <Text style={styles.startButtonText}>Start {selectedTime} Min Timer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-            <Text style={styles.cancelButtonText}>Maybe Later</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <View style={styles.timerDisplay}>
-        <Text style={styles.timerTitle}>{tool.title}</Text>
-        <View style={styles.timeCircle}>
-          <Text style={styles.timeText}>{formatTime(timeRemaining)}</Text>
-          <Text style={styles.timeLabel}>
-            {isActive ? 'remaining' : 'paused'}
-          </Text>
-        </View>
-        
-        {/* Progress bar */}
-        <View style={styles.progressContainer}>
-          <View 
-            style={[
-              styles.progressBar,
-              { 
-                width: `${((selectedTime * 60 - timeRemaining) / (selectedTime * 60)) * 100}%` 
+      {/* Header with close button */}
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>{tool.icon} {tool.title}</Text>
+        <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
+          <Ionicons name="close" size={24} color={THEME.text.secondary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {showSetup ? (
+          <>
+            <View style={styles.header}>
+              <Text style={styles.subtitle}>How long would you like to rest?</Text>
+            </View>
+
+            <View style={styles.timeOptions}>
+              {tool.timerOptions && tool.timerOptions.map(time => (
+                <TouchableOpacity
+                  key={time}
+                  style={[
+                    styles.timeButton,
+                    selectedTime === time && styles.selectedTimeButton
+                  ]}
+                  onPress={() => setSelectedTime(time)}
+                >
+                  <Text style={[
+                    styles.timeButtonText,
+                    selectedTime === time && styles.selectedTimeButtonText
+                  ]}>
+                    {time} min
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.instructions}>
+              <Text style={styles.instructionTitle}>While you rest:</Text>
+              {tool.instructions && tool.instructions.map((instruction, index) => (
+                <Text key={index} style={styles.instruction}>
+                  • {instruction}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.startButton} onPress={startTimer}>
+                <Text style={styles.startButtonText}>Start {selectedTime} Min Timer</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.timerDisplay}>
+              <View style={styles.timeCircle}>
+                <Text style={styles.timeText}>{formatTime(timeRemaining)}</Text>
+                <Text style={styles.timeLabel}>
+                  {isActive ? 'remaining' : 'paused'}
+                </Text>
+              </View>
+              
+              {/* Progress bar */}
+              <View style={styles.progressContainer}>
+                <View 
+                  style={[
+                    styles.progressBar,
+                    { 
+                      width: `${((selectedTime * 60 - timeRemaining) / (selectedTime * 60)) * 100}%` 
+                    }
+                  ]}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.encouragement}>
+              {isActive ? 
+                "Take this time for yourself. You deserve this rest. 💙" :
+                "Timer is paused. Ready to continue?"
               }
-            ]}
-          />
-        </View>
-      </View>
+            </Text>
 
-      <Text style={styles.encouragement}>
-        {isActive ? 
-          "Take this time for yourself. You deserve this rest. 💙" :
-          "Timer is paused. Ready to continue?"
-        }
-      </Text>
-
-      <View style={styles.timerControls}>
-        <TouchableOpacity 
-          style={styles.controlButton} 
-          onPress={pauseTimer}
-        >
-          <Text style={styles.controlButtonText}>
-            {isActive ? '⏸️ Pause' : '▶️ Resume'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.controlButton} 
-          onPress={extendTimer}
-        >
-          <Text style={styles.controlButtonText}>⏰ +5 Min</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.controlButton, styles.resetButton]} 
-          onPress={resetTimer}
-        >
-          <Text style={[styles.controlButtonText, styles.resetButtonText]}>
-            🔄 Reset
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <View style={styles.timerControls}>
+              <TouchableOpacity 
+                style={styles.controlButton} 
+                onPress={pauseTimer}
+              >
+                <Text style={styles.controlButtonText}>
+                  {isActive ? '⏸️ Pause' : '▶️ Resume'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.controlButton} 
+                onPress={extendTimer}
+              >
+                <Text style={styles.controlButtonText}>⏰ +5 Min</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.controlButton, styles.resetButton]} 
+                onPress={resetTimer}
+              >
+                <Text style={[styles.controlButtonText, styles.resetButtonText]}>
+                  🔄 Reset
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -258,103 +264,108 @@ export const AudioPlayerComponent = ({
     }
   };
 
-  if (showOptions) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{tool.icon} {tool.title}</Text>
-          <Text style={styles.subtitle}>Choose what sounds most calming to you:</Text>
-        </View>
-
-        <View style={styles.audioOptions}>
-          {tool.audioOptions.map(option => (
-            <TouchableOpacity
-              key={option.id}
-              style={styles.audioOption}
-              onPress={() => playAudio(option)}
-            >
-              <Text style={styles.audioIcon}>{option.icon}</Text>
-              <View style={styles.audioInfo}>
-                <Text style={styles.audioTitle}>{option.title}</Text>
-                <Text style={styles.audioDescription}>{option.description}</Text>
-              </View>
-              <Text style={styles.playButton}>▶️</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-          <Text style={styles.cancelButtonText}>Maybe Later</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <View style={styles.nowPlaying}>
-        <Text style={styles.nowPlayingTitle}>Now Playing</Text>
-        <View style={styles.currentTrack}>
-          <Text style={styles.trackIcon}>{selectedOption.icon}</Text>
-          <View style={styles.trackInfo}>
-            <Text style={styles.trackTitle}>{selectedOption.title}</Text>
-            <Text style={styles.trackDescription}>{selectedOption.description}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.playerControls}>
-        <TouchableOpacity 
-          style={styles.playPauseButton} 
-          onPress={pauseAudio}
-        >
-          <Text style={styles.playPauseIcon}>
-            {isPlaying ? '⏸️' : '▶️'}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.stopButton} 
-          onPress={stopAudio}
-        >
-          <Text style={styles.stopIcon}>⏹️</Text>
+      {/* Header with close button */}
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>{tool.icon} {tool.title}</Text>
+        <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
+          <Ionicons name="close" size={24} color={THEME.text.secondary} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.volumeContainer}>
-        <Text style={styles.volumeLabel}>Volume</Text>
-        <View style={styles.volumeSlider}>
-          {[0.3, 0.5, 0.7, 1.0].map(vol => (
-            <TouchableOpacity
-              key={vol}
-              style={[
-                styles.volumeButton,
-                volume === vol && styles.activeVolumeButton
-              ]}
-              onPress={() => changeVolume(vol)}
-            >
-              <Text style={[
-                styles.volumeText,
-                volume === vol && styles.activeVolumeText
-              ]}>
-                {Math.round(vol * 100)}%
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {showOptions ? (
+          <>
+            <View style={styles.header}>
+              <Text style={styles.subtitle}>Choose what sounds most calming to you:</Text>
+            </View>
 
-      <Text style={styles.encouragement}>
-        {isPlaying ? 
-          "Let these sounds create a peaceful space around you 🌸" :
-          "Take a moment to breathe and listen 🫁"
-        }
-      </Text>
+            <View style={styles.audioOptions}>
+              {tool.audioOptions && tool.audioOptions.map(option => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={styles.audioOption}
+                  onPress={() => playAudio(option)}
+                >
+                  <Text style={styles.audioIcon}>{option.icon}</Text>
+                  <View style={styles.audioInfo}>
+                    <Text style={styles.audioTitle}>{option.title}</Text>
+                    <Text style={styles.audioDescription}>{option.description}</Text>
+                  </View>
+                  <Text style={styles.playButton}>▶️</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.nowPlaying}>
+              <Text style={styles.nowPlayingTitle}>Now Playing</Text>
+              <View style={styles.currentTrack}>
+                <Text style={styles.trackIcon}>{selectedOption.icon}</Text>
+                <View style={styles.trackInfo}>
+                  <Text style={styles.trackTitle}>{selectedOption.title}</Text>
+                  <Text style={styles.trackDescription}>{selectedOption.description}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.playerControls}>
+              <TouchableOpacity 
+                style={styles.playPauseButton} 
+                onPress={pauseAudio}
+              >
+                <Text style={styles.playPauseIcon}>
+                  {isPlaying ? '⏸️' : '▶️'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.stopButton} 
+                onPress={stopAudio}
+              >
+                <Text style={styles.stopIcon}>⏹️</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.volumeContainer}>
+              <Text style={styles.volumeLabel}>Volume</Text>
+              <View style={styles.volumeSlider}>
+                {[0.3, 0.5, 0.7, 1.0].map(vol => (
+                  <TouchableOpacity
+                    key={vol}
+                    style={[
+                      styles.volumeButton,
+                      volume === vol && styles.activeVolumeButton
+                    ]}
+                    onPress={() => changeVolume(vol)}
+                  >
+                    <Text style={[
+                      styles.volumeText,
+                      volume === vol && styles.activeVolumeText
+                    ]}>
+                      {Math.round(vol * 100)}%
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <Text style={styles.encouragement}>
+              {isPlaying ? 
+                "Let these sounds create a peaceful space around you 🌸" :
+                "Take a moment to breathe and listen 🫁"
+              }
+            </Text>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
 
-// StimmingOptionsComponent.js
+// StimmingOptionsComponent.js - FIXED SCROLLING
 export const StimmingOptionsComponent = ({ 
   tool, 
   onComplete, 
@@ -383,82 +394,86 @@ export const StimmingOptionsComponent = ({
     setIsActive(true);
   };
 
-  if (!isActive) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{tool.icon} {tool.title}</Text>
-          <Text style={styles.subtitle}>
-            Choose the stimming that feels most calming right now:
-          </Text>
-        </View>
-
-        <View style={styles.stimOptions}>
-          {tool.stimOptions.map(option => (
-            <TouchableOpacity
-              key={option.id}
-              style={[
-                styles.stimOption,
-                selectedStims.find(s => s.id === option.id) && styles.selectedStimOption
-              ]}
-              onPress={() => toggleStim(option)}
-            >
-              <Text style={styles.stimIcon}>{option.icon}</Text>
-              <View style={styles.stimInfo}>
-                <Text style={styles.stimTitle}>{option.title}</Text>
-                <Text style={styles.stimDescription}>{option.description}</Text>
-                <Text style={styles.stimInstructions}>{option.instructions}</Text>
-              </View>
-              <Text style={styles.checkmark}>
-                {selectedStims.find(s => s.id === option.id) ? '✅' : '⭕'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.startButton} onPress={startStimming}>
-            <Text style={styles.startButtonText}>
-              Start Stimming ({selectedStims.length} selected)
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-            <Text style={styles.cancelButtonText}>Maybe Later</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <View style={styles.activeStimming}>
-        <Text style={styles.activeTitle}>Your Stimming Time 🌸</Text>
-        <Text style={styles.activeSubtitle}>
-          Take as much time as you need. Your stimming is important and helpful.
-        </Text>
-
-        <View style={styles.selectedStims}>
-          {selectedStims.map(stim => (
-            <View key={stim.id} style={styles.activeStim}>
-              <Text style={styles.activeStimIcon}>{stim.icon}</Text>
-              <Text style={styles.activeStimTitle}>{stim.title}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text style={styles.stimReminder}>
-          Remember: There's no right or wrong way to stim. 
-          Do what feels natural and comforting to your body.
-        </Text>
+      {/* Header with close button */}
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>{tool.icon} {tool.title}</Text>
+        <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
+          <Ionicons name="close" size={24} color={THEME.text.secondary} />
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity 
-        style={styles.completeButton} 
-        onPress={() => onComplete('completed')}
-      >
-        <Text style={styles.completeButtonText}>I Feel Better Now ✨</Text>
-      </TouchableOpacity>
+      {!isActive ? (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Text style={styles.subtitle}>
+              Choose the stimming that feels most calming right now:
+            </Text>
+          </View>
+
+          <View style={styles.stimOptions}>
+            {tool.stimOptions && tool.stimOptions.map(option => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.stimOption,
+                  selectedStims.find(s => s.id === option.id) && styles.selectedStimOption
+                ]}
+                onPress={() => toggleStim(option)}
+              >
+                <Text style={styles.stimIcon}>{option.icon}</Text>
+                <View style={styles.stimInfo}>
+                  <Text style={styles.stimTitle}>{option.title}</Text>
+                  <Text style={styles.stimDescription}>{option.description}</Text>
+                  <Text style={styles.stimInstructions}>{option.instructions}</Text>
+                </View>
+                <Text style={styles.checkmark}>
+                  {selectedStims.find(s => s.id === option.id) ? '✅' : '⭕'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.startButton} onPress={startStimming}>
+              <Text style={styles.startButtonText}>
+                Start Stimming ({selectedStims.length} selected)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.activeStimming}>
+            <Text style={styles.activeTitle}>Your Stimming Time 🌸</Text>
+            <Text style={styles.activeSubtitle}>
+              Take as much time as you need. Your stimming is important and helpful.
+            </Text>
+
+            <View style={styles.selectedStims}>
+              {selectedStims.map(stim => (
+                <View key={stim.id} style={styles.activeStim}>
+                  <Text style={styles.activeStimIcon}>{stim.icon}</Text>
+                  <Text style={styles.activeStimTitle}>{stim.title}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Text style={styles.stimReminder}>
+              Remember: There's no right or wrong way to stim. 
+              Do what feels natural and comforting to your body.
+            </Text>
+
+            <TouchableOpacity 
+              style={styles.completeButton} 
+              onPress={() => onComplete('completed')}
+            >
+              <Text style={styles.completeButtonText}>I Feel Better Now ✨</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -467,18 +482,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: THEME.primary.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50, // Account for status bar
+    paddingBottom: 15,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: THEME.text.primary,
+    flex: 1,
+    textAlign: 'center',
+    marginRight: 24, // Account for close button
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
     padding: 20,
+    flexGrow: 1,
   },
   header: {
     alignItems: 'center',
     marginBottom: 30,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: THEME.text.primary,
-    textAlign: 'center',
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
@@ -536,12 +574,6 @@ const styles = StyleSheet.create({
   timerDisplay: {
     alignItems: 'center',
     marginBottom: 30,
-  },
-  timerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: THEME.text.primary,
-    marginBottom: 20,
   },
   timeCircle: {
     width: 150,
@@ -797,8 +829,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 30,
     alignItems: 'center',
+    flex: 1,
   },
   activeTitle: {
     fontSize: 20,
@@ -843,11 +875,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     fontStyle: 'italic',
+    marginBottom: 30,
   },
   
   // Button styles
   buttonContainer: {
     gap: 12,
+    marginTop: 'auto',
   },
   startButton: {
     backgroundColor: THEME.zones.blue,
@@ -860,25 +894,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'white',
   },
-  cancelButton: {
-    backgroundColor: 'white',
-    borderRadius: 25,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: THEME.text.secondary,
-  },
   completeButton: {
     backgroundColor: THEME.semantic.progress,
     borderRadius: 25,
     padding: 16,
     alignItems: 'center',
-    marginTop: 'auto',
   },
   completeButtonText: {
     fontSize: 16,

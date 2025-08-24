@@ -1,4 +1,4 @@
-// src/screens/HelpScreen.js - Fixed with functional tools and better layout
+// src/screens/HelpScreen.js - Fixed with proper function ordering and React structure
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ import { getToolsForZone } from '../data/tools';
 
 const HelpScreen = ({ 
   selectedZone = 'blue',
-  userData,
+  userData = {},
   onToolUse,
   onSaveData,
   accessibilityMode = false,
@@ -25,14 +25,107 @@ const HelpScreen = ({
 
   const tools = getToolsForZone(selectedZone);
 
+  // ALL HELPER FUNCTIONS DEFINED FIRST IN CORRECT ORDER
   const handleBackPress = () => {
-    navigation?.goBack();
+    if (navigation?.goBack) {
+      navigation.goBack();
+    }
+  };
+
+  const markToolCompleted = (tool) => {
+    setCompletedTools(prev => [...prev, tool.id]);
+    
+    // Save completion data with error handling
+    try {
+      if (onSaveData && typeof onSaveData === 'function') {
+        onSaveData({
+          toolId: tool.id,
+          zone: selectedZone,
+          timestamp: new Date().toISOString(),
+          completed: true
+        });
+      }
+    } catch (error) {
+      console.error('Error saving tool completion:', error);
+      // Don't show error to user, just log it
+    }
+  };
+
+  const isToolCompleted = (toolId) => {
+    return completedTools.includes(toolId);
+  };
+
+  const handleRegularTool = (tool) => {
+    let alertTitle, alertMessage, buttons;
+
+    switch(tool.id) {
+      case 'blue_comfort_item':
+        alertTitle = '🧸 Comfort Item';
+        alertMessage = 'Your comfort items are important tools for feeling safe and calm.\n\n• Find your favorite comfort object\n• Hold it close and feel its texture\n• Notice how it makes you feel safer\n• It\'s okay to need comfort items at any age\n\nYou deserve comfort and security! 💙';
+        buttons = [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'I have my comfort item ✨', onPress: () => markToolCompleted(tool) }
+        ];
+        break;
+
+      case 'blue_rest':
+        alertTitle = '🛋️ Quiet Rest Time';
+        alertMessage = 'Find a cozy spot to rest and recharge your energy.\n\n• Find your favorite quiet spot\n• Get comfortable with soft textures\n• Dim the lights if possible\n• Rest for as long as you need\n• No pressure to do anything else\n\nTake all the time you need! 💙';
+        buttons = [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Found my rest spot ✨', onPress: () => markToolCompleted(tool) }
+        ];
+        break;
+
+      case 'blue_deep_pressure':
+        alertTitle = '🤗 Weighted Blanket Hug';
+        alertMessage = 'Use deep pressure to feel calm and secure.\n\n• Get your weighted blanket or heavy pillow\n• Wrap it around yourself snugly\n• Feel the gentle, even pressure\n• Breathe slowly and deeply\n• Stay as long as it feels good\n\nDeep pressure can be so comforting! 💙';
+        buttons = [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Using deep pressure ✨', onPress: () => markToolCompleted(tool) }
+        ];
+        break;
+
+      case 'blue_soft_music':
+        alertTitle = '🎵 Gentle Music';
+        alertMessage = 'Listen to soft, calming sounds or music.\n\n• Choose your favorite calm music\n• Use comfortable headphones if needed\n• Close your eyes and listen\n• Let the music wash over you\n• Focus only on the sounds\n\nMusic can be so healing! 💙';
+        buttons = [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Music is playing ✨', onPress: () => markToolCompleted(tool) }
+        ];
+        break;
+
+      case 'blue_gentle_stim':
+        alertTitle = '🌸 Soft Stimming';
+        alertMessage = 'Use gentle self-soothing movements.\n\n• Rock gently back and forth\n• Play with a soft fidget toy\n• Gentle hand movements\n• Whatever feels soothing to you\n• Go at your own pace\n\nStimming is a wonderful way to self-regulate! 💙';
+        buttons = [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Stimming feels good ✨', onPress: () => markToolCompleted(tool) }
+        ];
+        break;
+
+      default:
+        // Generic tool guidance - Make sure buttons work for ALL tools
+        alertTitle = `${tool.icon} ${tool.title}`;
+        alertMessage = `${tool.description}\n\nTake your time with this activity. You\'re learning to navigate your emotions! 🧭`;
+        buttons = [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Let\'s try it! ✨', onPress: () => markToolCompleted(tool) }
+        ];
+    }
+
+    Alert.alert(alertTitle, alertMessage, buttons);
   };
 
   const handleToolPress = async (tool) => {
-    // Record tool usage
-    if (onToolUse) {
-      await onToolUse(tool.title);
+    try {
+      // Record tool usage with error handling
+      if (onToolUse && typeof onToolUse === 'function') {
+        await onToolUse(tool.title);
+      }
+    } catch (error) {
+      console.error('Error recording tool usage:', error);
+      // Continue with tool functionality even if logging fails
     }
 
     // Handle different tool types with enhanced functionality
@@ -51,26 +144,6 @@ const HelpScreen = ({
     }
   };
 
-  const handleRegularTool = (tool) => {
-    let alertTitle, alertMessage, buttons;
-
-    switch(tool.id) {
-      case 'blue_comfort_item':
-        alertTitle = '🧸 Comfort Item';
-        alertMessage = 'Your comfort items are important tools for feeling safe and calm.\n\n• Find your favorite comfort object\n• Hold it close and feel its texture\n• Notice how it makes you feel safer\n• It\'s okay to need comfort items at any age\n\nYou deserve comfort and security! 💙';
-        buttons = [{ text: 'I have my comfort item ✨', onPress: () => markToolCompleted(tool) }];
-        break;
-
-      default:
-        // Generic tool guidance
-        alertTitle = `${tool.icon} ${tool.title}`;
-        alertMessage = `${tool.description}\n\nTake your time with this activity. You\'re learning to navigate your emotions! 🧭`;
-        buttons = [{ text: 'Let\'s try it!', onPress: () => markToolCompleted(tool) }];
-    }
-
-    Alert.alert(alertTitle, alertMessage, buttons);
-  };
-
   const handleModalComplete = (result) => {
     if (selectedTool) {
       markToolCompleted(selectedTool);
@@ -87,6 +160,8 @@ const HelpScreen = ({
         case 'completed':
           message += 'You took wonderful care of yourself! 💙';
           break;
+        default:
+          message += 'Thank you for trying! 🌟';
       }
       
       Alert.alert('Well Done! ✨', message);
@@ -101,40 +176,29 @@ const HelpScreen = ({
     setSelectedTool(null);
   };
 
-  const markToolCompleted = (tool) => {
-    setCompletedTools(prev => [...prev, tool.id]);
-    
-    // Save completion data
-    if (onSaveData) {
-      onSaveData({
-        toolId: tool.id,
-        zone: selectedZone,
-        timestamp: new Date().toISOString(),
-        completed: true
-      });
-    }
-  };
-
-  const isToolCompleted = (toolId) => {
-    return completedTools.includes(toolId);
-  };
-
   const handleProgressUpdate = async (progressType, label) => {
-    // Record progress data
-    const progressData = {
-      timestamp: new Date().toISOString(),
-      initialZone: selectedZone,
-      outcome: progressType,
-      id: Date.now()
-    };
-    
-    const updatedData = {
-      ...userData,
-      progress: [...(userData.progress || []), progressData]
-    };
-    
-    if (onSaveData) {
-      await onSaveData(updatedData);
+    try {
+      // Record progress data with error handling
+      const progressData = {
+        timestamp: new Date().toISOString(),
+        initialZone: selectedZone,
+        outcome: progressType,
+        id: Date.now()
+      };
+      
+      // Safely handle userData which might be undefined
+      const currentProgress = (userData && userData.progress) ? userData.progress : [];
+      const updatedData = {
+        ...userData,
+        progress: [...currentProgress, progressData]
+      };
+      
+      if (onSaveData && typeof onSaveData === 'function') {
+        await onSaveData(updatedData);
+      }
+    } catch (error) {
+      console.error('Error saving progress update:', error);
+      // Continue with user feedback even if save fails
     }
 
     // Provide encouraging feedback
@@ -175,7 +239,7 @@ const HelpScreen = ({
           tool={selectedTool}
           onComplete={handleModalComplete}
           onCancel={handleModalCancel}
-          userPreferences={userData?.stimmingPreferences || []}
+          userPreferences={(userData && userData.stimmingPreferences) ? userData.stimmingPreferences : []}
         />
       </Modal>
     );
@@ -198,12 +262,29 @@ const HelpScreen = ({
     );
   }
 
+  // If no tools available, show message
+  if (!tools || tools.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.noZoneContainer, accessibilityMode && styles.highContrastContainer]}>
+          <Text style={styles.noZoneEmoji}>🔧</Text>
+          <Text style={[styles.noZoneTitle, accessibilityMode && styles.highContrastText]}>
+            Tools Loading...
+          </Text>
+          <Text style={[styles.noZoneSubtitle, accessibilityMode && styles.highContrastDescription]}>
+            We're getting your {selectedZone} zone tools ready!
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Zone Header as Main Header */}
       <View style={[
         styles.zoneHeader, 
-        { backgroundColor: ZONE_COLORS[selectedZone] },
+        { backgroundColor: ZONE_COLORS[selectedZone] || THEME.zones.blue },
         accessibilityMode && styles.highContrastContainer
       ]}>
         {/* Back Button */}
@@ -311,7 +392,7 @@ const HelpScreen = ({
           </View>
         </View>
 
-        {/* Check-in Section - FIXED LAYOUT */}
+        {/* Check-in Section */}
         <View style={styles.checkinSection}>
           <Text style={styles.checkinTitle}>How do you feel now?</Text>
           <Text style={styles.checkinSubtitle}>
@@ -537,7 +618,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
-  // Check-in Section - FIXED
+  // Check-in Section
   checkinSection: {
     backgroundColor: 'white',
     margin: 20,
