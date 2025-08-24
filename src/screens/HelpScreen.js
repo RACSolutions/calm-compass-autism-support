@@ -17,7 +17,8 @@ const HelpScreen = ({
   onToolUse,
   onSaveData,
   accessibilityMode = false,
-  navigation
+  navigation,
+  goBackToZones
 }) => {
   const [activeModal, setActiveModal] = useState(null);
   const [selectedTool, setSelectedTool] = useState(null);
@@ -28,7 +29,6 @@ const HelpScreen = ({
 
   const tools = getToolsForZone(selectedZone);
 
-  // Helper Functions
   const markToolCompleted = (tool) => {
     setCompletedTools(prev => [...prev, tool.id]);
     
@@ -195,6 +195,58 @@ const HelpScreen = ({
     );
   };
 
+  const showCommunicationHelp = (zone) => {
+    const scripts = {
+      blue: [
+        "I need some quiet time please",
+        "I'm feeling tired and need to rest",
+        "Can I have my comfort item?",
+        "I need a break from talking right now"
+      ],
+      green: [
+        "I'm feeling good and ready to learn!",
+        "I'm happy and want to share something",
+        "I feel calm and focused right now",
+        "I'm ready to try something new"
+      ],
+      yellow: [
+        "I'm feeling a bit worried",
+        "I need help staying focused",
+        "Things feel overwhelming right now",
+        "I'm having trouble with this"
+      ],
+      red: [
+        "I need help feeling safe",
+        "I'm feeling very upset right now",
+        "I need someone to stay with me",
+        "This is too much for me right now"
+      ]
+    };
+
+    const zoneScripts = scripts[zone] || scripts.blue;
+    const scriptText = zoneScripts.map((script, index) => `${index + 1}. "${script}"`).join('\n\n');
+
+    Alert.alert(
+      '💬 Communication Help',
+      `Here are some phrases you can use:\n\n${scriptText}\n\nIt's okay to ask for help! You deserve support and understanding.`,
+      [{ text: 'Thank you! 💙', style: 'default' }]
+    );
+  };
+
+  const recordDailyCheckin = (feeling) => {
+    const messages = {
+      good: 'Thank you for sharing! It makes us happy to know the tools are helping you feel better! 🌟',
+      okay: 'Thank you for trying! Sometimes tools help in small ways, and that\'s okay too. Every little bit counts! 💙',
+      not_helpful: 'Thank you for being honest! Not every tool works for everyone. We appreciate you trying, and you can always come back when you\'re ready. 🌈'
+    };
+
+    Alert.alert(
+      'Thank You! ✨',
+      messages[feeling],
+      [{ text: 'You\'re welcome! 😊', style: 'default' }]
+    );
+  };
+
   // Show default message if no zone selected
   if (!selectedZone) {
     return (
@@ -224,7 +276,14 @@ const HelpScreen = ({
           {/* Back Button */}
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => navigation?.navigate('Zones')}
+            onPress={() => {
+              console.log('Back button pressed');
+              if (goBackToZones) {
+                goBackToZones();
+              } else {
+                console.log('goBackToZones function not available');
+              }
+            }}
             accessibilityRole="button"
             accessibilityLabel="Go back to zones"
           >
@@ -309,69 +368,6 @@ const HelpScreen = ({
   );
 };
 
-// Helper functions
-const getZoneMessage = (zone) => {
-  const messages = {
-    blue: 'Take time to rest and recharge your energy. 💙',
-    green: 'You\'re feeling great! Keep up the good energy! 💚',
-    yellow: 'Let\'s work on feeling more calm and focused. 💛',
-    red: 'Take some deep breaths. We\'ll help you feel safer. ❤️'
-  };
-  return messages[zone] || 'You\'re doing great! 🌟';
-};
-
-const showCommunicationHelp = (zone) => {
-  const scripts = {
-    blue: [
-      "I need some quiet time please",
-      "I'm feeling tired and need to rest",
-      "Can I have my comfort item?",
-      "I need a break from talking right now"
-    ],
-    green: [
-      "I'm feeling good and ready to learn!",
-      "I'm happy and want to share something",
-      "I feel calm and focused right now",
-      "I'm ready to try something new"
-    ],
-    yellow: [
-      "I'm feeling a bit worried",
-      "I need help staying focused",
-      "Things feel overwhelming right now",
-      "I'm having trouble with this"
-    ],
-    red: [
-      "I need help feeling safe",
-      "I'm feeling very upset right now",
-      "I need someone to stay with me",
-      "This is too much for me right now"
-    ]
-  };
-
-  const zoneScripts = scripts[zone] || scripts.blue;
-  const scriptText = zoneScripts.map((script, index) => `${index + 1}. "${script}"`).join('\n\n');
-
-  Alert.alert(
-    '💬 Communication Help',
-    `Here are some phrases you can use:\n\n${scriptText}\n\nIt's okay to ask for help! You deserve support and understanding.`,
-    [{ text: 'Thank you! 💙', style: 'default' }]
-  );
-};
-
-const recordDailyCheckin = (feeling) => {
-  const messages = {
-    good: 'Thank you for sharing! It makes us happy to know the tools are helping you feel better! 🌟',
-    okay: 'Thank you for trying! Sometimes tools help in small ways, and that\'s okay too. Every little bit counts! 💙',
-    not_helpful: 'Thank you for being honest! Not every tool works for everyone. We appreciate you trying, and you can always come back when you\'re ready. 🌈'
-  };
-
-  Alert.alert(
-    'Thank You! ✨',
-    messages[feeling],
-    [{ text: 'You\'re welcome! 😊', style: 'default' }]
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -395,12 +391,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 20, // Small padding inside SafeAreaView
+    paddingTop: 10, // Small padding inside SafeAreaView
     position: 'relative',
   },
   backButton: {
     position: 'absolute',
-    left: 0,
+    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -411,9 +407,9 @@ const styles = StyleSheet.create({
   zoneHeaderTitle: {
     fontSize: 28,
     fontWeight: '700',
-    paddingBottom: 20,
     color: 'white',
     textAlign: 'center',
+    paddingBottom: 30,
     flex: 1,
   },
   

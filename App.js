@@ -140,6 +140,14 @@ export default function App() {
     }
   };
 
+  // FIXED: Function to go back to zones from Help screen
+  const goBackToZones = () => {
+    console.log('Going back to Zones tab');
+    if (navigationRef.current) {
+      navigationRef.current.navigate('Zones');
+    }
+  };
+
   // FIXED: Handle tool usage WITHOUT immediately updating state
   const handleToolUse = async (tool) => {
     try {
@@ -276,6 +284,7 @@ export default function App() {
         onToolUse={handleToolUse}
         onSaveData={handleUpdateUserData}
         accessibilityMode={settings?.theme === 'high_contrast'}
+        goBackToZones={goBackToZones}
       />
     );
   };
@@ -472,9 +481,9 @@ const styles = StyleSheet.create({
 
   // Header logo (keeping your original)
   headerLogo: {
-    width: 180,
-    height: 100,
-    marginTop: 8,
+    width: 160,
+    height: 40,
+    marginTop: 10,
   },
 
   // Tab icon styling
