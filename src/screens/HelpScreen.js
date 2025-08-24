@@ -1,4 +1,4 @@
-// src/screens/HelpScreen.js - Fixed with proper function ordering and React structure
+// src/screens/HelpScreen.js - Fixed with proper timer modal handling
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +25,7 @@ const HelpScreen = ({
 
   const tools = getToolsForZone(selectedZone);
 
-  // ALL HELPER FUNCTIONS DEFINED FIRST IN CORRECT ORDER
+  // Helper Functions
   const handleBackPress = () => {
     if (navigation?.goBack) {
       navigation.goBack();
@@ -47,7 +47,6 @@ const HelpScreen = ({
       }
     } catch (error) {
       console.error('Error saving tool completion:', error);
-      // Don't show error to user, just log it
     }
   };
 
@@ -65,15 +64,6 @@ const HelpScreen = ({
         buttons = [
           { text: 'Cancel', style: 'cancel' },
           { text: 'I have my comfort item ✨', onPress: () => markToolCompleted(tool) }
-        ];
-        break;
-
-      case 'blue_rest':
-        alertTitle = '🛋️ Quiet Rest Time';
-        alertMessage = 'Find a cozy spot to rest and recharge your energy.\n\n• Find your favorite quiet spot\n• Get comfortable with soft textures\n• Dim the lights if possible\n• Rest for as long as you need\n• No pressure to do anything else\n\nTake all the time you need! 💙';
-        buttons = [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Found my rest spot ✨', onPress: () => markToolCompleted(tool) }
         ];
         break;
 
@@ -105,9 +95,8 @@ const HelpScreen = ({
         break;
 
       default:
-        // Generic tool guidance - Make sure buttons work for ALL tools
         alertTitle = `${tool.icon} ${tool.title}`;
-        alertMessage = `${tool.description}\n\nTake your time with this activity. You\'re learning to navigate your emotions! 🧭`;
+        alertMessage = `${tool.description}\n\nTake your time with this activity. You're learning to navigate your emotions! 🧭`;
         buttons = [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Let\'s try it! ✨', onPress: () => markToolCompleted(tool) }
@@ -118,28 +107,33 @@ const HelpScreen = ({
   };
 
   const handleToolPress = async (tool) => {
+    console.log('Tool pressed:', tool.title, 'hasTimer:', tool.hasTimer);
+    
     try {
-      // Record tool usage with error handling
+      // Record tool usage
       if (onToolUse && typeof onToolUse === 'function') {
         await onToolUse(tool.title);
       }
     } catch (error) {
       console.error('Error recording tool usage:', error);
-      // Continue with tool functionality even if logging fails
     }
 
-    // Handle different tool types with enhanced functionality
-    if (tool.hasTimer) {
+    // Handle different tool types - FIXED LOGIC
+    if (tool.hasTimer === true) {
+      console.log('Opening timer modal for:', tool.title);
       setSelectedTool(tool);
       setActiveModal('timer');
-    } else if (tool.hasAudioOptions) {
+    } else if (tool.hasAudioOptions === true) {
+      console.log('Opening audio modal for:', tool.title);
       setSelectedTool(tool);
       setActiveModal('audio');
-    } else if (tool.hasCustomOptions) {
+    } else if (tool.hasCustomOptions === true) {
+      console.log('Opening stimming modal for:', tool.title);
       setSelectedTool(tool);
       setActiveModal('stimming');
     } else {
       // Handle regular tools with guidance
+      console.log('Using regular tool handling for:', tool.title);
       handleRegularTool(tool);
     }
   };
@@ -176,43 +170,13 @@ const HelpScreen = ({
     setSelectedTool(null);
   };
 
-  const handleProgressUpdate = async (progressType, label) => {
-    try {
-      // Record progress data with error handling
-      const progressData = {
-        timestamp: new Date().toISOString(),
-        initialZone: selectedZone,
-        outcome: progressType,
-        id: Date.now()
-      };
-      
-      // Safely handle userData which might be undefined
-      const currentProgress = (userData && userData.progress) ? userData.progress : [];
-      const updatedData = {
-        ...userData,
-        progress: [...currentProgress, progressData]
-      };
-      
-      if (onSaveData && typeof onSaveData === 'function') {
-        await onSaveData(updatedData);
-      }
-    } catch (error) {
-      console.error('Error saving progress update:', error);
-      // Continue with user feedback even if save fails
-    }
-
-    // Provide encouraging feedback
-    let message = `Thanks for letting us know: ${label}.\n\nYou\'re doing such a great job taking care of yourself and learning about your emotions. Keep up the wonderful work! 💚`;
-    
-    if (progressType === 'struggling') {
-      message = 'It\'s completely okay that you\'re still struggling. Feelings can take time to change, and that\'s normal.\n\nYou\'re being so brave by checking in with yourself. Would you like to try another tool or talk to someone?';
-    }
-    
-    Alert.alert('Thank you for sharing! 🌟', message);
-  };
-
   const renderModal = () => {
-    if (!activeModal || !selectedTool) return null;
+    if (!activeModal || !selectedTool) {
+      console.log('Not rendering modal - activeModal:', activeModal, 'selectedTool:', selectedTool);
+      return null;
+    }
+
+    console.log('Rendering modal:', activeModal, 'for tool:', selectedTool.title);
 
     let ModalComponent;
     switch(activeModal) {
@@ -234,6 +198,7 @@ const HelpScreen = ({
         visible={true}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={handleModalCancel}
       >
         <ModalComponent
           tool={selectedTool}
@@ -383,7 +348,7 @@ const HelpScreen = ({
               style={styles.commButton}
               onPress={() => Alert.alert(
                 '✨ Feeling better', 
-                'Wonderful! You\'ve done great work taking care of yourself. 🌟'
+                'Wonderful! You\'ve done great work taking care of yourself. 💙'
               )}
             >
               <Text style={styles.commButtonIcon}>✨</Text>
@@ -394,52 +359,40 @@ const HelpScreen = ({
 
         {/* Check-in Section */}
         <View style={styles.checkinSection}>
-          <Text style={styles.checkinTitle}>How do you feel now?</Text>
-          <Text style={styles.checkinSubtitle}>
-            Let us know how the tools are working!
-          </Text>
-          
-          {/* Emotion Faces */}
-          <View style={styles.emotionFaces}>
+          <Text style={styles.checkinTitle}>How are you doing now? 🌟</Text>
+          <View style={styles.checkinButtons}>
             <TouchableOpacity 
-              style={styles.emotionButton}
-              onPress={() => handleProgressUpdate('much_better', 'Much better!')}
+              style={styles.progressButton}
+              onPress={() => handleProgressUpdate('better', 'Much better!')}
             >
-              <Text style={styles.emotionEmoji}>😄</Text>
-              <Text style={styles.emotionLabel}>Much better!</Text>
+              <Text style={styles.progressButtonText}>Much Better! 😊</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.emotionButton}
-              onPress={() => handleProgressUpdate('little_better', 'A little better')}
+              style={styles.progressButton}
+              onPress={() => handleProgressUpdate('some_better', 'A little better')}
             >
-              <Text style={styles.emotionEmoji}>🙂</Text>
-              <Text style={styles.emotionLabel}>A little better</Text>
+              <Text style={styles.progressButtonText}>A Little Better 🙂</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.emotionButton}
+              style={styles.progressButton}
               onPress={() => handleProgressUpdate('same', 'About the same')}
             >
-              <Text style={styles.emotionEmoji}>😐</Text>
-              <Text style={styles.emotionLabel}>About the same</Text>
+              <Text style={styles.progressButtonText}>About the Same 😐</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.emotionButton}
+              style={styles.progressButton}
               onPress={() => handleProgressUpdate('struggling', 'Still struggling')}
             >
-              <Text style={styles.emotionEmoji}>😔</Text>
-              <Text style={styles.emotionLabel}>Still struggling</Text>
+              <Text style={styles.progressButtonText}>Still Struggling 😔</Text>
             </TouchableOpacity>
           </View>
-          
-          <Text style={styles.reminderText}>
-            Remember: All feelings are okay. You're learning to navigate them! 🧭💚
-          </Text>
         </View>
       </ScrollView>
 
+      {/* Render Modal */}
       {renderModal()}
     </View>
   );
@@ -450,72 +403,48 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.primary.background,
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100, // Account for bottom tab navigation
-  },
   
   // Zone Header
   zoneHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 50, // Account for status bar
-    paddingBottom: 15,
+    paddingTop: 50,
+    paddingBottom: 20,
     paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   zoneHeaderTitle: {
-    fontSize: 24,
+    flex: 1,
+    fontSize: 20,
     fontWeight: '700',
     color: 'white',
     textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    marginLeft: -40, // Offset back button for centering
   },
   headerSpacer: {
-    width: 40, // Same width as back button for centering
+    width: 40,
   },
   
-  // No zone selected state
-  noZoneContainer: {
+  // Content
+  scrollContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
   },
-  noZoneEmoji: {
-    fontSize: 80,
-    marginBottom: 20,
+  scrollContent: {
+    paddingBottom: 40,
   },
-  noZoneTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: THEME.text.primary,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  noZoneSubtitle: {
-    fontSize: 16,
-    color: THEME.text.secondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  
-  // Message
   messageContainer: {
     backgroundColor: 'white',
     margin: 20,
+    marginBottom: 10,
     padding: 20,
     borderRadius: 16,
     shadowColor: '#000',
@@ -533,33 +462,35 @@ const styles = StyleSheet.create({
   
   // Progress
   progressContainer: {
-    backgroundColor: THEME.semantic.progress,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 12,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    margin: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: THEME.semantic.progress,
   },
   progressText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    color: 'white',
+    color: THEME.semantic.progress,
+    textAlign: 'center',
   },
   
   // Tools
   toolsContainer: {
     paddingHorizontal: 20,
-    marginBottom: 30,
   },
   toolsHeader: {
     fontSize: 18,
     fontWeight: '600',
     color: THEME.text.primary,
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
   },
   
-  // Communication
+  // Communication Section
   communicationSection: {
     backgroundColor: 'white',
     margin: 20,
@@ -574,12 +505,12 @@ const styles = StyleSheet.create({
   communicationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
     justifyContent: 'center',
-    marginBottom: 8,
   },
   communicationIcon: {
     fontSize: 24,
-    marginRight: 8,
+    marginRight: 12,
   },
   communicationTitle: {
     fontSize: 18,
@@ -591,31 +522,28 @@ const styles = StyleSheet.create({
     color: THEME.text.secondary,
     textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 20,
   },
   communicationButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
     gap: 12,
   },
   commButton: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    minWidth: '30%',
+    backgroundColor: THEME.primary.background,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#e0e0e0',
   },
   commButtonIcon: {
-    fontSize: 24,
-    marginBottom: 4,
+    fontSize: 20,
+    marginRight: 12,
   },
   commButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
     color: THEME.text.primary,
-    textAlign: 'center',
   },
   
   // Check-in Section
@@ -635,50 +563,53 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: THEME.text.primary,
     textAlign: 'center',
-    marginBottom: 8,
-  },
-  checkinSubtitle: {
-    fontSize: 14,
-    color: THEME.text.secondary,
-    textAlign: 'center',
     marginBottom: 20,
   },
-  emotionFaces: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-    flexWrap: 'wrap',
+  checkinButtons: {
+    gap: 12,
   },
-  emotionButton: {
-    alignItems: 'center',
-    padding: 8,
-    minWidth: 80,
-    marginBottom: 10,
+  progressButton: {
+    backgroundColor: THEME.primary.background,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
-  emotionEmoji: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  emotionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+  progressButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
     color: THEME.text.primary,
     textAlign: 'center',
-    lineHeight: 16,
-  },
-  reminderText: {
-    fontSize: 13,
-    color: THEME.semantic.calm,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    lineHeight: 18,
   },
   
-  // High contrast styles
+  // No Zone States
+  noZoneContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  noZoneEmoji: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  noZoneTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: THEME.text.primary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  noZoneSubtitle: {
+    fontSize: 16,
+    color: THEME.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  
+  // High Contrast Support
   highContrastContainer: {
     backgroundColor: THEME.accessibility.highContrast.background,
-    borderWidth: 2,
-    borderColor: THEME.accessibility.highContrast.primary,
   },
   highContrastText: {
     color: THEME.accessibility.highContrast.text,
