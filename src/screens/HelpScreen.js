@@ -1,6 +1,6 @@
-// src/screens/HelpScreen.js - Fixed with proper timer modal handling
+// src/screens/HelpScreen.js - Fixed with proper timer modal and zone header
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ToolButton from '../components/zones/ToolButton';
 import { 
@@ -23,31 +23,30 @@ const HelpScreen = ({
   const [selectedTool, setSelectedTool] = useState(null);
   const [completedTools, setCompletedTools] = useState([]);
 
+  // Debug logging
+  console.log('📊 STATE UPDATE - activeModal:', activeModal, 'selectedTool:', selectedTool?.title || 'none');
+
   const tools = getToolsForZone(selectedZone);
 
   // Helper Functions
-  const handleBackPress = () => {
-    if (navigation?.goBack) {
-      navigation.goBack();
-    }
-  };
-
   const markToolCompleted = (tool) => {
     setCompletedTools(prev => [...prev, tool.id]);
     
-    // Save completion data with error handling
-    try {
-      if (onSaveData && typeof onSaveData === 'function') {
-        onSaveData({
-          toolId: tool.id,
-          zone: selectedZone,
-          timestamp: new Date().toISOString(),
-          completed: true
-        });
+    // Save completion data with error handling - delayed to not interfere with modals
+    setTimeout(() => {
+      try {
+        if (onSaveData && typeof onSaveData === 'function') {
+          onSaveData({
+            toolId: tool.id,
+            zone: selectedZone,
+            timestamp: new Date().toISOString(),
+            completed: true
+          });
+        }
+      } catch (error) {
+        console.error('Error saving tool completion:', error);
       }
-    } catch (error) {
-      console.error('Error saving tool completion:', error);
-    }
+    }, 1000); // Delay to prevent modal interference
   };
 
   const isToolCompleted = (toolId) => {
@@ -67,83 +66,66 @@ const HelpScreen = ({
         ];
         break;
 
-      case 'blue_deep_pressure':
-        alertTitle = '🤗 Weighted Blanket Hug';
-        alertMessage = 'Use deep pressure to feel calm and secure.\n\n• Get your weighted blanket or heavy pillow\n• Wrap it around yourself snugly\n• Feel the gentle, even pressure\n• Breathe slowly and deeply\n• Stay as long as it feels good\n\nDeep pressure can be so comforting! 💙';
+      case 'blue_hydration':
+        alertTitle = '💧 Drink Water';
+        alertMessage = 'Staying hydrated helps your body and brain feel better.\n\n• Get a glass of cool water\n• Drink slowly and mindfully\n• Notice how refreshing it feels\n• Your body needs and deserves care\n\nEvery sip is self-care! 💙';
         buttons = [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Using deep pressure ✨', onPress: () => markToolCompleted(tool) }
-        ];
-        break;
-
-      case 'blue_soft_music':
-        alertTitle = '🎵 Gentle Music';
-        alertMessage = 'Listen to soft, calming sounds or music.\n\n• Choose your favorite calm music\n• Use comfortable headphones if needed\n• Close your eyes and listen\n• Let the music wash over you\n• Focus only on the sounds\n\nMusic can be so healing! 💙';
-        buttons = [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Music is playing ✨', onPress: () => markToolCompleted(tool) }
-        ];
-        break;
-
-      case 'blue_gentle_stim':
-        alertTitle = '🌸 Soft Stimming';
-        alertMessage = 'Use gentle self-soothing movements.\n\n• Rock gently back and forth\n• Play with a soft fidget toy\n• Gentle hand movements\n• Whatever feels soothing to you\n• Go at your own pace\n\nStimming is a wonderful way to self-regulate! 💙';
-        buttons = [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Stimming feels good ✨', onPress: () => markToolCompleted(tool) }
+          { text: 'I\'ve had some water ✨', onPress: () => markToolCompleted(tool) }
         ];
         break;
 
       default:
-        alertTitle = `${tool.icon} ${tool.title}`;
-        alertMessage = `${tool.description}\n\nTake your time with this activity. You're learning to navigate your emotions! 🧭`;
+        alertTitle = tool.icon + ' ' + tool.title;
+        alertMessage = tool.description + '\n\nTake your time with this tool. You\'re doing great! 💙';
         buttons = [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Let\'s try it! ✨', onPress: () => markToolCompleted(tool) }
+          { text: 'I tried this tool ✨', onPress: () => markToolCompleted(tool) }
         ];
+        break;
     }
 
     Alert.alert(alertTitle, alertMessage, buttons);
   };
 
-  const handleToolPress = async (tool) => {
-    console.log('Tool pressed:', tool.title, 'hasTimer:', tool.hasTimer);
-    
-    try {
-      // Record tool usage
-      if (onToolUse && typeof onToolUse === 'function') {
-        await onToolUse(tool.title);
-      }
-    } catch (error) {
-      console.error('Error recording tool usage:', error);
+  // FIXED: Main tool press handler - prevent state conflicts
+  const handleToolPress = (tool) => {
+    console.log('=== TOOL PRESS 1 ===');
+    console.log('Tool:', tool.title, 'hasTimer:', tool.hasTimer);
+    console.log('Before state - activeModal:', activeModal, 'selectedTool:', selectedTool?.title);
+
+    // Record tool usage in background without waiting
+    if (onToolUse && typeof onToolUse === 'function') {
+      onToolUse(tool);
     }
 
-    // Handle different tool types - FIXED LOGIC
-    if (tool.hasTimer === true) {
-      console.log('Opening timer modal for:', tool.title);
+    // FIXED: Set modal state immediately without any async delays
+    if (tool.hasTimer) {
+      console.log('🎯 TRIGGERING TIMER modal immediately...');
       setSelectedTool(tool);
       setActiveModal('timer');
-    } else if (tool.hasAudioOptions === true) {
-      console.log('Opening audio modal for:', tool.title);
+    } else if (tool.hasAudioOptions) {
+      console.log('🎯 TRIGGERING AUDIO modal immediately...');
       setSelectedTool(tool);
       setActiveModal('audio');
-    } else if (tool.hasCustomOptions === true) {
-      console.log('Opening stimming modal for:', tool.title);
+    } else if (tool.hasStimmingOptions) {
+      console.log('🎯 TRIGGERING STIMMING modal immediately...');
       setSelectedTool(tool);
       setActiveModal('stimming');
     } else {
-      // Handle regular tools with guidance
-      console.log('Using regular tool handling for:', tool.title);
+      console.log('🎯 Using SIMPLE tool handling for:', tool.title);
       handleRegularTool(tool);
     }
   };
 
+  // FIXED: Modal completion handler
   const handleModalComplete = (result) => {
+    console.log('Modal completed with result:', result);
+    
     if (selectedTool) {
       markToolCompleted(selectedTool);
       
-      // Show completion message based on result
-      let message = 'Great job using that tool! ';
+      let message = 'You used the ' + selectedTool.title + ' tool! ';
       switch(result) {
         case 'better':
           message += 'It sounds like it really helped you feel better! 😊';
@@ -161,22 +143,24 @@ const HelpScreen = ({
       Alert.alert('Well Done! ✨', message);
     }
     
+    // Clear modal state
     setActiveModal(null);
     setSelectedTool(null);
   };
 
   const handleModalCancel = () => {
+    console.log('Modal cancelled');
     setActiveModal(null);
     setSelectedTool(null);
   };
 
+  // FIXED: Modal rendering with better state checks
   const renderModal = () => {
+    console.log('🔍 renderModal - activeModal:', activeModal, 'selectedTool:', selectedTool?.title || 'null');
+    
     if (!activeModal || !selectedTool) {
-      console.log('Not rendering modal - activeModal:', activeModal, 'selectedTool:', selectedTool);
       return null;
     }
-
-    console.log('Rendering modal:', activeModal, 'for tool:', selectedTool.title);
 
     let ModalComponent;
     switch(activeModal) {
@@ -190,6 +174,7 @@ const HelpScreen = ({
         ModalComponent = StimmingOptionsComponent;
         break;
       default:
+        console.warn('Unknown modal type:', activeModal);
         return null;
     }
 
@@ -213,7 +198,7 @@ const HelpScreen = ({
   // Show default message if no zone selected
   if (!selectedZone) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={[styles.noZoneContainer, accessibilityMode && styles.highContrastContainer]}>
           <Text style={styles.noZoneEmoji}>🧭</Text>
           <Text style={[styles.noZoneTitle, accessibilityMode && styles.highContrastText]}>
@@ -223,313 +208,254 @@ const HelpScreen = ({
             Go to the Zones tab and tap on how you're feeling to get personalized tools and support!
           </Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  // If no tools available, show message
-  if (!tools || tools.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={[styles.noZoneContainer, accessibilityMode && styles.highContrastContainer]}>
-          <Text style={styles.noZoneEmoji}>🔧</Text>
-          <Text style={[styles.noZoneTitle, accessibilityMode && styles.highContrastText]}>
-            Tools Loading...
-          </Text>
-          <Text style={[styles.noZoneSubtitle, accessibilityMode && styles.highContrastDescription]}>
-            We're getting your {selectedZone} zone tools ready!
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  // Get zone info
+  const zoneColor = ZONE_COLORS[selectedZone];
+  const zoneTitle = selectedZone.charAt(0).toUpperCase() + selectedZone.slice(1) + ' Zone';
 
   return (
     <View style={styles.container}>
-      {/* Zone Header as Main Header */}
-      <View style={[
-        styles.zoneHeader, 
-        { backgroundColor: ZONE_COLORS[selectedZone] || THEME.zones.blue },
-        accessibilityMode && styles.highContrastContainer
-      ]}>
-        {/* Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={handleBackPress}
-          accessibilityRole="button"
-          accessibilityLabel="Go back to zones"
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        
-        {/* Zone Title */}
-        <Text style={[styles.zoneHeaderTitle, accessibilityMode && styles.highContrastText]}>
-          {selectedZone.charAt(0).toUpperCase() + selectedZone.slice(1)} Zone
-        </Text>
-        
-        {/* Empty view for centering */}
-        <View style={styles.headerSpacer} />
-      </View>
+      {/* FIXED: Zone Header - full screen including status bar */}
+      <SafeAreaView style={[styles.zoneHeader, { backgroundColor: zoneColor }]}>
+        <View style={styles.zoneHeaderContent}>
+          {/* Back Button */}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation?.navigate('Zones')}
+            accessibilityRole="button"
+            accessibilityLabel="Go back to zones"
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          
+          {/* Zone Title - replaces logo when in a zone */}
+          <Text style={styles.zoneHeaderTitle}>
+            {zoneTitle}
+          </Text>
+        </View>
+      </SafeAreaView>
 
+      {/* Tools List */}
       <ScrollView 
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.toolsList}
+        contentContainerStyle={styles.toolsListContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Zone Message */}
-        <View style={styles.messageContainer}>
-          <Text style={styles.zoneMessage}>
-            {selectedZone === 'blue' && "You're in the Blue Zone. Take time to rest and recharge your energy. 💙"}
-            {selectedZone === 'green' && "You're in the Green Zone. Great time to learn and be creative! 💚"}
-            {selectedZone === 'yellow' && "You're in the Yellow Zone. Let's use some tools to help you feel more balanced. 💛"}
-            {selectedZone === 'red' && "You're in the Red Zone. Let's find safe ways to handle these big feelings. ❤️"}
+        {tools.map(tool => (
+          <ToolButton
+            key={tool.id}
+            tool={tool}
+            onPress={() => handleToolPress(tool)}
+            completed={isToolCompleted(tool.id)}
+            accessibilityMode={accessibilityMode}
+          />
+        ))}
+
+        {/* Communication Support Section */}
+        <View style={[styles.commSection, accessibilityMode && styles.highContrastContainer]}>
+          <Text style={[styles.commTitle, accessibilityMode && styles.highContrastText]}>
+            Need Help Talking?
           </Text>
+          <Text style={[styles.commSubtitle, accessibilityMode && styles.highContrastDescription]}>
+            Sometimes it's hard to find the right words
+          </Text>
+
+          <TouchableOpacity 
+            style={styles.commButton}
+            onPress={() => showCommunicationHelp(selectedZone)}
+          >
+            <Text style={styles.commButtonIcon}>💬</Text>
+            <Text style={styles.commButtonText}>Communication Cards</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Progress Indicator */}
-        {completedTools.length > 0 && (
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressText}>
-              🌟 {completedTools.length} tool{completedTools.length !== 1 ? 's' : ''} used today!
-            </Text>
-          </View>
-        )}
-
-        {/* Tools List */}
-        <View style={styles.toolsContainer}>
-          <Text style={styles.toolsHeader}>Choose a tool that feels right:</Text>
-          
-          {tools.map((tool, index) => (
-            <ToolButton
-              key={tool.id || `${tool.title}-${index}`}
-              tool={tool}
-              onPress={handleToolPress}
-              accessibilityMode={accessibilityMode}
-              isCompleted={isToolCompleted(tool.id)}
-              showStatus={true}
-            />
-          ))}
-        </View>
-
-        {/* Help with Words Section */}
-        <View style={styles.communicationSection}>
-          <View style={styles.communicationHeader}>
-            <Text style={styles.communicationIcon}>💬</Text>
-            <Text style={styles.communicationTitle}>Need Help with Words?</Text>
-          </View>
-          <Text style={styles.communicationSubtitle}>
-            Sometimes it's hard to say how we feel. That's okay!
+        {/* Daily Check-in Section */}
+        <View style={[styles.checkinSection, accessibilityMode && styles.highContrastContainer]}>
+          <Text style={[styles.checkinTitle, accessibilityMode && styles.highContrastText]}>
+            How was your tool time?
           </Text>
           
-          <View style={styles.communicationButtons}>
-            <TouchableOpacity 
-              style={styles.commButton}
-              onPress={() => Alert.alert(
-                '🆘 I need help', 
-                'You can show this to someone you trust, or point to what you need. Asking for help is brave! 💪'
-              )}
-            >
-              <Text style={styles.commButtonIcon}>🆘</Text>
-              <Text style={styles.commButtonText}>I need help</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.commButton}
-              onPress={() => Alert.alert(
-                '🏠 I need space', 
-                'It\'s okay to need quiet time or space. You can show this to let someone know. 🌟'
-              )}
-            >
-              <Text style={styles.commButtonIcon}>🏠</Text>
-              <Text style={styles.commButtonText}>I need space</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.commButton}
-              onPress={() => Alert.alert(
-                '✨ Feeling better', 
-                'Wonderful! You\'ve done great work taking care of yourself. 💙'
-              )}
-            >
-              <Text style={styles.commButtonIcon}>✨</Text>
-              <Text style={styles.commButtonText}>Feeling better</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Check-in Section */}
-        <View style={styles.checkinSection}>
-          <Text style={styles.checkinTitle}>How are you doing now? 🌟</Text>
           <View style={styles.checkinButtons}>
             <TouchableOpacity 
               style={styles.progressButton}
-              onPress={() => handleProgressUpdate('better', 'Much better!')}
+              onPress={() => recordDailyCheckin('good')}
             >
-              <Text style={styles.progressButtonText}>Much Better! 😊</Text>
+              <Text style={styles.progressButtonText}>😊 Really helpful!</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.progressButton}
-              onPress={() => handleProgressUpdate('some_better', 'A little better')}
+              onPress={() => recordDailyCheckin('okay')}
             >
-              <Text style={styles.progressButtonText}>A Little Better 🙂</Text>
+              <Text style={styles.progressButtonText}>😐 It was okay</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.progressButton}
-              onPress={() => handleProgressUpdate('same', 'About the same')}
+              onPress={() => recordDailyCheckin('not_helpful')}
             >
-              <Text style={styles.progressButtonText}>About the Same 😐</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.progressButton}
-              onPress={() => handleProgressUpdate('struggling', 'Still struggling')}
-            >
-              <Text style={styles.progressButtonText}>Still Struggling 😔</Text>
+              <Text style={styles.progressButtonText}>😔 Didn't help much</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
-      {/* Render Modal */}
+      {/* Render modals */}
       {renderModal()}
     </View>
+  );
+};
+
+// Helper functions
+const getZoneMessage = (zone) => {
+  const messages = {
+    blue: 'Take time to rest and recharge your energy. 💙',
+    green: 'You\'re feeling great! Keep up the good energy! 💚',
+    yellow: 'Let\'s work on feeling more calm and focused. 💛',
+    red: 'Take some deep breaths. We\'ll help you feel safer. ❤️'
+  };
+  return messages[zone] || 'You\'re doing great! 🌟';
+};
+
+const showCommunicationHelp = (zone) => {
+  const scripts = {
+    blue: [
+      "I need some quiet time please",
+      "I'm feeling tired and need to rest",
+      "Can I have my comfort item?",
+      "I need a break from talking right now"
+    ],
+    green: [
+      "I'm feeling good and ready to learn!",
+      "I'm happy and want to share something",
+      "I feel calm and focused right now",
+      "I'm ready to try something new"
+    ],
+    yellow: [
+      "I'm feeling a bit worried",
+      "I need help staying focused",
+      "Things feel overwhelming right now",
+      "I'm having trouble with this"
+    ],
+    red: [
+      "I need help feeling safe",
+      "I'm feeling very upset right now",
+      "I need someone to stay with me",
+      "This is too much for me right now"
+    ]
+  };
+
+  const zoneScripts = scripts[zone] || scripts.blue;
+  const scriptText = zoneScripts.map((script, index) => `${index + 1}. "${script}"`).join('\n\n');
+
+  Alert.alert(
+    '💬 Communication Help',
+    `Here are some phrases you can use:\n\n${scriptText}\n\nIt's okay to ask for help! You deserve support and understanding.`,
+    [{ text: 'Thank you! 💙', style: 'default' }]
+  );
+};
+
+const recordDailyCheckin = (feeling) => {
+  const messages = {
+    good: 'Thank you for sharing! It makes us happy to know the tools are helping you feel better! 🌟',
+    okay: 'Thank you for trying! Sometimes tools help in small ways, and that\'s okay too. Every little bit counts! 💙',
+    not_helpful: 'Thank you for being honest! Not every tool works for everyone. We appreciate you trying, and you can always come back when you\'re ready. 🌈'
+  };
+
+  Alert.alert(
+    'Thank You! ✨',
+    messages[feeling],
+    [{ text: 'You\'re welcome! 😊', style: 'default' }]
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.primary.background,
+    backgroundColor: '#f8f9fa',
   },
   
-  // Zone Header
+  // FIXED: Zone Header (extends to top of screen)
   zoneHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 20,
+    paddingTop: 0, // Remove padding - SafeAreaView handles it
+    paddingBottom: 15, // Reduced padding since we removed the message
     paddingHorizontal: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 5,
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  zoneHeaderTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-    textAlign: 'center',
-    marginLeft: -40, // Offset back button for centering
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  
-  // Content
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  messageContainer: {
-    backgroundColor: 'white',
-    margin: 20,
-    marginBottom: 10,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  zoneMessage: {
-    fontSize: 16,
-    color: THEME.text.primary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  
-  // Progress
-  progressContainer: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    margin: 20,
-    marginTop: 10,
-    marginBottom: 10,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: THEME.semantic.progress,
-  },
-  progressText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: THEME.semantic.progress,
-    textAlign: 'center',
-  },
-  
-  // Tools
-  toolsContainer: {
-    paddingHorizontal: 20,
-  },
-  toolsHeader: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: THEME.text.primary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  
-  // Communication Section
-  communicationSection: {
-    backgroundColor: 'white',
-    margin: 20,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  communicationHeader: {
+  zoneHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
     justifyContent: 'center',
+    paddingTop: 20, // Small padding inside SafeAreaView
+    position: 'relative',
   },
-  communicationIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  communicationTitle: {
+  zoneHeaderTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    paddingBottom: 20,
+    color: 'white',
+    textAlign: 'center',
+    flex: 1,
+  },
+  
+  // Tools list styles
+  toolsList: {
+    flex: 1,
+  },
+  toolsListContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  
+  // Communication section
+  commSection: {
+    backgroundColor: 'white',
+    marginHorizontal: 0,
+    marginTop: 30,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  commTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: THEME.text.primary,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  communicationSubtitle: {
+  commSubtitle: {
     fontSize: 14,
     color: THEME.text.secondary,
     textAlign: 'center',
     marginBottom: 20,
-    lineHeight: 20,
-  },
-  communicationButtons: {
-    gap: 12,
   },
   commButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: THEME.primary.background,
     padding: 16,
     borderRadius: 12,
@@ -549,7 +475,8 @@ const styles = StyleSheet.create({
   // Check-in Section
   checkinSection: {
     backgroundColor: 'white',
-    margin: 20,
+    marginHorizontal: 0,
+    marginTop: 20,
     padding: 20,
     borderRadius: 16,
     shadowColor: '#000',

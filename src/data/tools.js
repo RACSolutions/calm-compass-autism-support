@@ -1,4 +1,4 @@
-// src/data/tools.js - Fixed with proper tool definitions
+// src/data/tools.js - Fixed without console logs that cause re-renders
 export const ZONE_TOOLS = {
   blue: [
     {
@@ -8,8 +8,8 @@ export const ZONE_TOOLS = {
       description: 'Find a cozy spot to rest and recharge your energy',
       category: 'rest',
       autismSpecific: true,
-      hasTimer: true,  // CRITICAL: This enables timer modal
-      timerOptions: [5, 10, 15, 20, 30, 45, 60], // minutes
+      hasTimer: true,
+      timerOptions: [5, 10, 15, 20, 30, 45, 60],
       defaultDuration: 15,
       instructions: [
         'Find your favorite quiet spot',
@@ -28,8 +28,8 @@ export const ZONE_TOOLS = {
       description: 'Use deep pressure to feel calm and secure',
       category: 'sensory',
       autismSpecific: true,
-      hasTimer: true,  // CRITICAL: This enables timer modal
-      timerOptions: [5, 10, 15, 20, 30], // minutes
+      hasTimer: true,
+      timerOptions: [5, 10, 15, 20, 30],
       defaultDuration: 10,
       instructions: [
         'Get your weighted blanket or heavy pillow',
@@ -49,7 +49,7 @@ export const ZONE_TOOLS = {
       description: 'Listen to soft, calming music',
       category: 'auditory',
       autismSpecific: false,
-      hasAudioOptions: true, // Different modal type
+      hasAudioOptions: true,
       audioOptions: [
         {
           id: 'soft_piano',
@@ -63,8 +63,16 @@ export const ZONE_TOOLS = {
           id: 'ambient_calm',
           title: 'Ambient Calm',
           icon: '🌙',
-          description: 'Peaceful ambient music',
+          description: 'Peaceful ambient sounds',
           duration: '15 minutes',
+          loopable: true
+        },
+        {
+          id: 'nature_sounds',
+          title: 'Nature Sounds',
+          icon: '🌿',
+          description: 'Gentle rain and forest sounds',
+          duration: '20 minutes',
           loopable: true
         }
       ]
@@ -76,14 +84,15 @@ export const ZONE_TOOLS = {
       description: 'Get your favorite comfort item to feel safe and secure',
       category: 'comfort',
       autismSpecific: true,
-      hasTimer: false, // Regular tool - no modal
+      hasTimer: false,
       instructions: [
-        'Find your favorite comfort object',
-        'Hold it close and feel its texture',
+        'Find your special comfort object',
+        'Hold it close to you',
+        'Feel its texture and weight',
         'Notice how it makes you feel safer',
-        'It\'s okay to need comfort items at any age'
+        'It\'s perfectly okay to need comfort items'
       ],
-      benefits: ['Provides security', 'Reduces anxiety', 'Offers familiarity']
+      benefits: ['Provides security', 'Reduces anxiety', 'Creates familiarity']
     },
     {
       id: 'blue_gentle_stim',
@@ -92,32 +101,34 @@ export const ZONE_TOOLS = {
       description: 'Use gentle self-soothing movements',
       category: 'movement',
       autismSpecific: true,
-      hasCustomOptions: true, // Different modal type
+      hasCustomOptions: true,
       stimmingOptions: [
-        'Rock gently back and forth',
-        'Play with a soft fidget toy',
-        'Gentle hand movements',
-        'Whatever feels soothing to you',
-        'Go at your own pace'
+        { id: 'hand_flapping', title: 'Gentle Hand Movements', icon: '👋' },
+        { id: 'rocking', title: 'Slow Rocking', icon: '↔️' },
+        { id: 'finger_tapping', title: 'Soft Finger Tapping', icon: '👆' },
+        { id: 'texture_touching', title: 'Touch Soft Textures', icon: '🤲' }
       ]
     },
     {
       id: 'blue_breathing',
       title: 'Calm Breathing',
       icon: '🫁',
-      description: 'Slow, deep breathing to relax your body',
+      description: 'Breathe slowly to help your body relax',
       category: 'breathing',
       autismSpecific: false,
-      hasTimer: true, // Timer for breathing exercises
-      timerOptions: [3, 5, 10, 15], // Shorter durations for breathing
+      hasTimer: true,
+      timerOptions: [2, 5, 10, 15],
       defaultDuration: 5,
       instructions: [
         'Sit or lie down comfortably',
-        'Breathe in slowly through your nose',
-        'Hold for a moment',
-        'Breathe out slowly through your mouth',
-        'Focus only on your breathing'
-      ]
+        'Place one hand on your chest, one on your belly',
+        'Breathe in slowly through your nose (4 counts)',
+        'Hold your breath gently (4 counts)',
+        'Breathe out slowly through your mouth (6 counts)',
+        'Repeat this pattern'
+      ],
+      benefits: ['Calms nervous system', 'Reduces stress hormones', 'Improves focus'],
+      timerSound: 'nature_sound'
     }
   ],
   
@@ -126,16 +137,16 @@ export const ZONE_TOOLS = {
       id: 'green_creative',
       title: 'Creative Time',
       icon: '🎨',
-      description: 'Draw, color, or create something beautiful',
+      description: 'Draw, write, or create something you enjoy',
       category: 'creative',
       autismSpecific: false,
       hasTimer: true,
-      timerOptions: [15, 30, 45, 60],
-      defaultDuration: 30
+      timerOptions: [10, 20, 30, 45],
+      defaultDuration: 20
     },
     {
       id: 'green_learning',
-      title: 'Learning Activity',
+      title: 'Special Interest',
       icon: '📚',
       description: 'Explore a topic you love or learn something new',
       category: 'cognitive',
@@ -193,15 +204,9 @@ export const ZONE_TOOLS = {
   ]
 };
 
-// Helper function to get tools for a specific zone
+// FIXED: Helper function without console logs that cause re-renders
 export const getToolsForZone = (zone) => {
-  console.log('Getting tools for zone:', zone);
-  const tools = ZONE_TOOLS[zone] || [];
-  console.log('Found tools:', tools.length);
-  tools.forEach(tool => {
-    console.log(`Tool: ${tool.title}, hasTimer: ${tool.hasTimer}`);
-  });
-  return tools;
+  return ZONE_TOOLS[zone] || [];
 };
 
 // Get all tools across all zones

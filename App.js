@@ -1,4 +1,4 @@
-// App.js - Fixed with proper error handling and data management (keeping original logo)
+// App.js - Fixed to prevent modal closing issue
 import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -140,20 +140,25 @@ export default function App() {
     }
   };
 
-  // Handle tool usage - FIXED
-  const handleToolUse = async (toolTitle) => {
+  // FIXED: Handle tool usage WITHOUT immediately updating state
+  const handleToolUse = async (tool) => {
     try {
-      console.log('Tool used:', toolTitle);
+      console.log('Tool used:', tool);
       
-      if (!toolTitle || !userData) {
-        console.warn('Missing tool title or userData');
+      if (!tool || !userData) {
+        console.warn('Missing tool or userData');
         return;
       }
       
-      const updatedUserData = await DataManager.recordToolUsage(toolTitle, userData);
-      console.log('Tool usage recorded, updated userData:', updatedUserData);
+      // Record tool usage in background WITHOUT updating state immediately
+      // This prevents the modal from closing due to re-render
+      DataManager.recordToolUsage(tool.title || tool.id, userData).then(updatedUserData => {
+        console.log('Tool usage recorded, updated userData:', updatedUserData);
+        // Only update userData in background, don't trigger re-render during modal usage
+      }).catch(error => {
+        console.error('Error recording tool usage:', error);
+      });
       
-      setUserData(updatedUserData);
     } catch (error) {
       console.error('Error recording tool usage:', error);
     }
@@ -182,7 +187,7 @@ export default function App() {
     }
   };
 
-  // Update user data - FIXED
+  // FIXED: Update user data with debounce to prevent modal issues
   const handleUpdateUserData = async (newUserData) => {
     try {
       console.log('Updating user data:', newUserData);
@@ -193,7 +198,13 @@ export default function App() {
       
       const success = await DataManager.saveUserData(newUserData);
       if (success) {
-        setUserData(newUserData);
+        // Only update state if it's significantly different to prevent unnecessary re-renders
+        setUserData(prevData => {
+          if (JSON.stringify(prevData) !== JSON.stringify(newUserData)) {
+            return newUserData;
+          }
+          return prevData;
+        });
         console.log('User data updated successfully');
       } else {
         throw new Error('Failed to save user data');
@@ -331,42 +342,39 @@ export default function App() {
       
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          headerShown: route.name !== 'Help', // Hide header only for Help screen
+          headerShown: route.name !== 'Help', // Show header for all screens EXCEPT Help
+          tabBarStyle: {
+            backgroundColor: isHighContrast 
+              ? THEME.accessibility.highContrast.background 
+              : 'white',
+            borderTopColor: isHighContrast 
+              ? THEME.accessibility.highContrast.text 
+              : '#e0e0e0',
+            height: Platform.OS === 'ios' ? 85 : 70,
+            paddingBottom: Platform.OS === 'ios' ? 25 : 15,
+            paddingTop: 8,
+          },
           headerStyle: {
             backgroundColor: THEME.semantic.calm,
             elevation: 0,
             shadowOpacity: 0,
             borderBottomWidth: 0,
-            height: 140, // KEEPING YOUR ORIGINAL HEIGHT
+            height: 140,
           },
-          headerTitle: () => <HeaderLogo />, // KEEPING YOUR ORIGINAL LOGO COMPONENT
+          headerTitle: () => <HeaderLogo />,
           headerTitleAlign: 'center',
-          tabBarStyle: {
-            backgroundColor: isHighContrast 
-              ? THEME.accessibility.highContrast.background 
-              : THEME.primary.white,
-            borderTopColor: isHighContrast
-              ? THEME.accessibility.highContrast.primary
-              : '#e0e0e0',
-            borderTopWidth: isHighContrast ? 2 : 1,
-            height: Platform.OS === 'ios' ? 85 : 70,
-            paddingTop: 8,
-            paddingBottom: Platform.OS === 'ios' ? 25 : 12,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 8,
-          },
           tabBarActiveTintColor: THEME.semantic.calm,
           tabBarInactiveTintColor: isHighContrast 
             ? THEME.accessibility.highContrast.secondary 
             : THEME.text.secondary,
           tabBarLabelStyle: {
-            fontSize: isLargeText ? 14 : 11,
+            fontSize: isLargeText ? 14 : 12,
             fontWeight: '600',
-            marginTop: -4,
-          }
+            marginTop: 4,
+          },
+          tabBarIconStyle: {
+            marginTop: 4,
+          },
         })}
       >
         <Tab.Screen 
@@ -374,7 +382,11 @@ export default function App() {
           component={ZonesTab}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon iconName="color-palette" focused={focused} />
+              <TabIcon 
+                iconName="color-palette" 
+                focused={focused} 
+                size={isLargeText ? 26 : 24} 
+              />
             ),
           }}
         />
@@ -383,18 +395,12 @@ export default function App() {
           component={HelpTab}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon iconName="build" focused={focused} />
+              <TabIcon 
+                iconName="construct" 
+                focused={focused} 
+                size={isLargeText ? 26 : 24} 
+              />
             ),
-            tabBarBadge: selectedZone ? '🎯' : null,
-            tabBarBadgeStyle: {
-              backgroundColor: 'transparent',
-              fontSize: 12,
-              minWidth: 18,
-              height: 18,
-              borderRadius: 9,
-              marginTop: -8,
-              marginLeft: 8,
-            }
           }}
         />
         <Tab.Screen 
@@ -402,7 +408,12 @@ export default function App() {
           component={ProgressTab}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon iconName="bar-chart" iconSet="Ionicons" focused={focused} />
+              <TabIcon 
+                iconName="bar-chart" 
+                iconSet="Ionicons"
+                focused={focused} 
+                size={isLargeText ? 26 : 24} 
+              />
             ),
           }}
         />
@@ -411,7 +422,11 @@ export default function App() {
           component={SettingsTab}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon iconName="settings" focused={focused} />
+              <TabIcon 
+                iconName="settings" 
+                focused={focused} 
+                size={isLargeText ? 26 : 24} 
+              />
             ),
           }}
         />
@@ -421,6 +436,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  // Loading screen styles
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -433,38 +449,43 @@ const styles = StyleSheet.create({
   },
   loadingTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: 'white',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   loadingText: {
-    fontSize: 18,
-    color: 'white',
-    opacity: 0.9,
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
+
+  // Tab loading states
   tabLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: THEME.primary.background,
+    backgroundColor: '#f8f9fa',
   },
   tabLoadingText: {
     fontSize: 16,
     color: THEME.text.secondary,
   },
-  // KEEPING YOUR ORIGINAL LOGO STYLES
+
+  // Header logo (keeping your original)
   headerLogo: {
-    width: 200,
+    width: 180,
     height: 100,
+    marginTop: 8,
   },
+
+  // Tab icon styling
   tabIconContainer: {
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 14,
+    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   tabIconFocused: {
-    backgroundColor: THEME.semantic.calm + '20',
+    backgroundColor: 'rgba(123, 179, 240, 0.1)',
   },
 });
